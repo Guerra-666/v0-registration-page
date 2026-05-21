@@ -60,14 +60,14 @@ export async function registrarInscripciones(
   success: boolean;
   error?: string;
 }> {
-  if (!matricula.trim() || eventoIds.length < 3) {
-    return { success: false, error: 'Se requiere seleccionar al menos 3 eventos' };
+  if (!matricula.trim() || eventoIds.length < 4) {
+    return { success: false, error: 'Se requiere seleccionar al menos 4 eventos' };
   }
 
   const fechaRegistro = new Date().toISOString();
 
   const statements = eventoIds.map((eventoId) => ({
-    sql: 'INSERT INTO inscripciones_eventos (alumno_matricula, evento_id, fecha_registro) VALUES (?, ?, ?)',
+    sql: 'INSERT OR IGNORE INTO inscripciones_eventos (alumno_matricula, evento_id, fecha_registro) VALUES (?, ?, ?)',
     args: [matricula.trim(), eventoId, fechaRegistro],
   }));
 
