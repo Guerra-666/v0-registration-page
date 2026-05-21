@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { validarAdministrativo } from '@/lib/admin-actions';
 
 interface AdminLoginProps {
-  onSuccess: () => void;
+  onSuccess: (username: string) => void;
 }
 
 export function AdminLogin({ onSuccess }: AdminLoginProps) {
@@ -23,7 +23,7 @@ export function AdminLogin({ onSuccess }: AdminLoginProps) {
     try {
       const result = await validarAdministrativo(usuario);
       if (result.success) {
-        onSuccess();
+        onSuccess(usuario.trim());
       } else {
         setError(true);
       }

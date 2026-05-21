@@ -6,7 +6,8 @@ import { MatriculaStep } from '@/components/matricula-step';
 import { EventosStep } from '@/components/eventos-step';
 import { ConfirmationStep } from '@/components/confirmation-step';
 import { Toast } from '@/components/toast';
-import { obtenerEventos, registrarInscripciones } from '@/lib/actions';
+import { obtenerEventos, registrarInscripciones, validarMatricula } from '@/lib/actions';
+import { getNombrePrograma } from '@/lib/programas';
 import { Evento } from '@/lib/db';
 
 type Step = 'matricula' | 'eventos' | 'confirmacion';
@@ -37,18 +38,18 @@ export default function RegistroPage() {
 
   const handleMatriculaSuccess = async (
     matricula: string,
-    nombre: string
+    nombre: string,
+    programa: string
   ) => {
     setIsLoading(true);
     try {
       const eventosData = await obtenerEventos();
       setEventos(eventosData);
 
-      // Extract programa from nombre para demo (ideally esto vendría de la BD)
       setAlumno({
         matricula,
         nombre,
-        programa: 'Ingeniería Informática', // Este sería parte del alumno data
+        programa: getNombrePrograma(programa),
       });
 
       setStep('eventos');
@@ -71,7 +72,6 @@ export default function RegistroPage() {
 
       await registrarInscripciones(alumno.matricula, selectedIds);
 
-      // Get full evento objects for confirmation
       const selected = eventos.filter((e) => selectedIds.includes(e.id));
       setEventosSeleccionados(selected);
 
@@ -82,9 +82,7 @@ export default function RegistroPage() {
       });
     } catch (error: any) {
       setToast({
-        message:
-          error?.message ||
-          'Error al registrar inscripciones',
+        message: error?.message || 'Error al registrar inscripciones',
         type: 'error',
       });
     } finally {
@@ -100,36 +98,23 @@ export default function RegistroPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header - Premium Design */}
-      <header className="bg-[#1a3a5c] text-white shadow-lg sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Image
-              src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/LOGO-BLANCO-ZJYsSidUIe6mzTHOqlPSn41svgcW5x.avif"
-              alt="Congreso Logo"
-              width={50}
-              height={50}
-              className="object-contain"
-              priority
-            />
-            <div className="hidden sm:block">
-              <h1 className="text-sm font-bold leading-tight">Congreso</h1>
-              <p className="text-xs leading-tight opacity-90">Multidisciplinario de</p>
-              <p className="text-xs leading-tight opacity-90">Investigación e Innovación</p>
-            </div>
-          </div>
-          <nav className="hidden md:flex items-center gap-1">
-            <span className="px-4 py-2 bg-[#2d5a7b] rounded-lg text-sm font-medium">Registro</span>
-          </nav>
-          <div className="text-right md:hidden">
-            <p className="text-xs font-medium">28 - 30 Mayo</p>
-          </div>
+    <div className="min-h-screen bg-background flex flex-col">
+      {/* Header - Premium Clean Design */}
+      <header className="bg-[#1a3a5c] shadow-lg sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 py-2 flex items-center justify-center">
+          <Image
+            src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/LOGO-BLANCO-ZJYsSidUIe6mzTHOqlPSn41svgcW5x.avif"
+            alt="Congreso Multidisciplinario de Investigación e Innovación"
+            width={280}
+            height={60}
+            className="object-contain h-12 sm:h-14 md:h-16 w-auto"
+            priority
+          />
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="flex-1">
+      <main className="flex-1 flex flex-col">
         {step === 'matricula' && (
           <MatriculaStep onSuccess={handleMatriculaSuccess} isLoading={isLoading} />
         )}

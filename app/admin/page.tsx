@@ -5,11 +5,11 @@ import { AdminLogin } from '@/components/admin-login';
 import { AdminDashboard } from '@/components/admin-dashboard';
 
 export default function AdminPage() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [adminUser, setAdminUser] = useState<string | null>(null);
 
-  if (!isAuthenticated) {
-    return <AdminLogin onSuccess={() => setIsAuthenticated(true)} />;
+  if (!adminUser) {
+    return <AdminLogin onSuccess={(username) => setAdminUser(username)} />;
   }
 
-  return <AdminDashboard onLogout={() => setIsAuthenticated(false)} />;
+  return <AdminDashboard adminName={adminUser} onLogout={() => setAdminUser(null)} />;
 }
