@@ -2,39 +2,34 @@
 
 import { db } from './db';
 
-// Hardcoded admin user while the table is being created
-const TEMP_ADMIN_USER = 'adrian.guerra';
-
 export async function validarAdministrativo(usuario: string): Promise<{
   success: boolean;
+  nombreCompleto?: string;
   error?: string;
 }> {
   if (!usuario.trim()) {
-    return { success: false, error: 'Ingresa un usuario válido' };
+    return { success: false, error: 'Ingresa un usuario valido' };
   }
 
   const normalizedUser = usuario.trim().toLowerCase();
 
-  // Check hardcoded user first
-  if (normalizedUser === TEMP_ADMIN_USER) {
-    return { success: true };
-  }
-
-  // Try to check against the database (if the table exists)
   try {
     const result = await db.execute({
-      sql: 'SELECT usuario FROM administrativos WHERE LOWER(usuario) = ?',
+      sql: 'SELECT nombre_completo FROM administrativos WHERE LOWER(usuario) = ?',
       args: [normalizedUser],
     });
 
     if (result.rows.length > 0) {
-      return { success: true };
+      return { 
+        success: true, 
+        nombreCompleto: (result.rows[0].nombre_completo as string) || usuario 
+      };
     }
-  } catch {
-    // Table doesn't exist yet, only allow hardcoded user
-  }
 
-  return { success: false, error: 'Usuario no autorizado' };
+    return { success: false, error: 'Usuario no autorizado' };
+  } catch (error: any) {
+    return { success: false, error: 'Error de conexion' };
+  }
 }
 
 export async function obtenerReporteInscripciones(limit?: number): Promise<{

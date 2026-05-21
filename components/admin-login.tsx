@@ -22,8 +22,8 @@ export function AdminLogin({ onSuccess }: AdminLoginProps) {
 
     try {
       const result = await validarAdministrativo(usuario);
-      if (result.success) {
-        onSuccess(usuario.trim());
+      if (result.success && result.nombreCompleto) {
+        onSuccess(result.nombreCompleto);
       } else {
         setError(true);
       }
