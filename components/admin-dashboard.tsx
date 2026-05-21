@@ -27,6 +27,24 @@ type ReporteData = {
   fecha_registro: string;
 };
 
+// Extract day number from various formats
+// Could be: "Jueves 28 de mayo", "28", "1" (meaning day 1 = 28), "2" (meaning day 2 = 29)
+function getDiaNumero(dia: string): string {
+  if (!dia) return '';
+  
+  // If it's just "1" or "2", map to actual dates (1 = 28 mayo, 2 = 29 mayo)
+  if (dia === '1') return '28';
+  if (dia === '2') return '29';
+  if (dia === '3') return '30';
+  
+  // If it contains a 2-digit number like 28, 29, 30, extract it
+  const match = dia.match(/\b(28|29|30)\b/);
+  if (match) return match[1];
+  
+  // Otherwise return as-is
+  return dia;
+}
+
 export function AdminDashboard({ adminName, onLogout }: AdminDashboardProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -46,7 +64,7 @@ export function AdminDashboard({ adminName, onLogout }: AdminDashboardProps) {
     try {
       const [resumenData, reporteData] = await Promise.all([
         obtenerResumenDashboard(),
-        obtenerReporteInscripciones(),
+        obtenerReporteInscripciones(5), // Only last 5 for dashboard
       ]);
       setResumen(resumenData);
       if (reporteData.success && reporteData.data) {
@@ -60,13 +78,20 @@ export function AdminDashboard({ adminName, onLogout }: AdminDashboardProps) {
   const handleExportExcel = async () => {
     setIsExporting(true);
     try {
-      const excelData = inscripciones.map((row) => ({
+      // Get ALL data for Excel export
+      const fullReport = await obtenerReporteInscripciones();
+      const allData = fullReport.data || [];
+
+      // Sheet 1: Complete detailed report
+      const excelData = allData.map((row) => ({
         'Matricula': row.matricula,
         'Nombre del Alumno': row.nombre_alumno,
         'Programa Academico': getNombrePrograma(row.programa),
+        'Clave Programa': row.programa,
         'ID Evento': row.evento_id,
         'Nombre del Evento': row.evento,
         'Dia': row.dia,
+        'Dia (Num)': getDiaNumero(row.dia),
         'Hora': row.hora,
         'Sede': row.sede,
         'Clasificacion': row.clasificacion,
@@ -76,25 +101,76 @@ export function AdminDashboard({ adminName, onLogout }: AdminDashboardProps) {
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.json_to_sheet(excelData);
       ws['!cols'] = [
-        { wch: 12 }, { wch: 35 }, { wch: 45 }, { wch: 10 }, { wch: 50 },
-        { wch: 20 }, { wch: 10 }, { wch: 25 }, { wch: 20 }, { wch: 20 },
+        { wch: 12 }, { wch: 35 }, { wch: 50 }, { wch: 10 }, { wch: 10 },
+        { wch: 60 }, { wch: 22 }, { wch: 8 }, { wch: 12 }, { wch: 30 },
+        { wch: 20 }, { wch: 20 },
       ];
-      XLSX.utils.book_append_sheet(wb, ws, 'Inscripciones');
+      XLSX.utils.book_append_sheet(wb, ws, 'Inscripciones Completas');
 
-      const eventSummary = inscripciones.reduce((acc: Record<string, number>, row) => {
+      // Sheet 2: Summary by event with counts
+      const eventSummary = allData.reduce((acc: Record<string, { count: number; dia: string; hora: string; sede: string }>, row) => {
         const key = row.evento || 'Sin evento';
+        if (!acc[key]) {
+          acc[key] = { count: 0, dia: row.dia, hora: row.hora, sede: row.sede };
+        }
+        acc[key].count++;
+        return acc;
+      }, {});
+
+      const summaryData = Object.entries(eventSummary)
+        .sort((a, b) => b[1].count - a[1].count)
+        .map(([evento, info]) => ({
+          'Evento': evento,
+          'Dia': getDiaNumero(info.dia),
+          'Hora': info.hora,
+          'Sede': info.sede,
+          'Total Inscritos': info.count,
+        }));
+
+      const wsSummary = XLSX.utils.json_to_sheet(summaryData);
+      wsSummary['!cols'] = [{ wch: 60 }, { wch: 8 }, { wch: 12 }, { wch: 30 }, { wch: 15 }];
+      XLSX.utils.book_append_sheet(wb, wsSummary, 'Resumen por Evento');
+
+      // Sheet 3: Summary by student
+      const studentSummary = allData.reduce((acc: Record<string, { nombre: string; programa: string; eventos: string[] }>, row) => {
+        const key = row.matricula;
+        if (!acc[key]) {
+          acc[key] = { nombre: row.nombre_alumno, programa: row.programa, eventos: [] };
+        }
+        acc[key].eventos.push(row.evento);
+        return acc;
+      }, {});
+
+      const studentData = Object.entries(studentSummary).map(([matricula, info]) => ({
+        'Matricula': matricula,
+        'Nombre del Alumno': info.nombre,
+        'Programa': getNombrePrograma(info.programa),
+        'Total Eventos': info.eventos.length,
+        'Eventos Inscritos': info.eventos.join(' | '),
+      }));
+
+      const wsStudents = XLSX.utils.json_to_sheet(studentData);
+      wsStudents['!cols'] = [{ wch: 12 }, { wch: 35 }, { wch: 50 }, { wch: 14 }, { wch: 100 }];
+      XLSX.utils.book_append_sheet(wb, wsStudents, 'Resumen por Alumno');
+
+      // Sheet 4: Summary by program
+      const programSummary = allData.reduce((acc: Record<string, number>, row) => {
+        const key = row.programa || 'Sin programa';
         acc[key] = (acc[key] || 0) + 1;
         return acc;
       }, {});
 
-      const summaryData = Object.entries(eventSummary).map(([evento, count]) => ({
-        'Evento': evento,
-        'Total Inscritos': count,
-      }));
+      const programData = Object.entries(programSummary)
+        .sort((a, b) => b[1] - a[1])
+        .map(([programa, count]) => ({
+          'Clave': programa,
+          'Programa Academico': getNombrePrograma(programa),
+          'Total Inscripciones': count,
+        }));
 
-      const wsSummary = XLSX.utils.json_to_sheet(summaryData);
-      wsSummary['!cols'] = [{ wch: 50 }, { wch: 15 }];
-      XLSX.utils.book_append_sheet(wb, wsSummary, 'Resumen por Evento');
+      const wsPrograms = XLSX.utils.json_to_sheet(programData);
+      wsPrograms['!cols'] = [{ wch: 10 }, { wch: 50 }, { wch: 18 }];
+      XLSX.utils.book_append_sheet(wb, wsPrograms, 'Resumen por Programa');
 
       const fecha = new Date().toISOString().split('T')[0];
       XLSX.writeFile(wb, `inscripciones_comiin_${fecha}.xlsx`);
@@ -108,16 +184,14 @@ export function AdminDashboard({ adminName, onLogout }: AdminDashboardProps) {
       {/* Header */}
       <header className="bg-[#1a3a5c] shadow-lg">
         <div className="max-w-7xl mx-auto px-4 py-2 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Image
-              src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/LOGO-BLANCO-ZJYsSidUIe6mzTHOqlPSn41svgcW5x.avif"
-              alt="Logo"
-              width={200}
-              height={50}
-              className="object-contain h-10 sm:h-12 w-auto"
-              priority
-            />
-          </div>
+          <Image
+            src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/LOGO-BLANCO-ZJYsSidUIe6mzTHOqlPSn41svgcW5x.avif"
+            alt="Logo"
+            width={200}
+            height={50}
+            className="object-contain h-10 sm:h-12 w-auto"
+            priority
+          />
           <div className="flex items-center gap-2 sm:gap-4">
             <span className="text-white text-xs sm:text-sm font-medium hidden sm:inline">
               {adminName}
@@ -169,7 +243,7 @@ export function AdminDashboard({ adminName, onLogout }: AdminDashboardProps) {
 
         {/* Actions Bar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
-          <h2 className="text-lg sm:text-xl font-semibold text-[#1a3a5c]">Listado de Inscripciones</h2>
+          <h2 className="text-lg sm:text-xl font-semibold text-[#1a3a5c]">Ultimos Registros</h2>
           <div className="flex gap-2 sm:gap-3">
             <Button 
               variant="outline" 
@@ -195,7 +269,7 @@ export function AdminDashboard({ adminName, onLogout }: AdminDashboardProps) {
           </div>
         </div>
 
-        {/* Data Table */}
+        {/* Simplified Data Table - Last 5 only */}
         <Card className="overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -205,23 +279,21 @@ export function AdminDashboard({ adminName, onLogout }: AdminDashboardProps) {
                   <th className="px-3 sm:px-4 py-3 text-left font-medium text-xs sm:text-sm">Alumno</th>
                   <th className="px-3 sm:px-4 py-3 text-left font-medium text-xs sm:text-sm hidden md:table-cell">Programa</th>
                   <th className="px-3 sm:px-4 py-3 text-left font-medium text-xs sm:text-sm">Evento</th>
-                  <th className="px-3 sm:px-4 py-3 text-left font-medium text-xs sm:text-sm hidden lg:table-cell">Dia</th>
+                  <th className="px-3 sm:px-4 py-3 text-center font-medium text-xs sm:text-sm w-16">Dia</th>
                   <th className="px-3 sm:px-4 py-3 text-left font-medium text-xs sm:text-sm hidden lg:table-cell">Hora</th>
-                  <th className="px-3 sm:px-4 py-3 text-left font-medium text-xs sm:text-sm hidden xl:table-cell">Sede</th>
-                  <th className="px-3 sm:px-4 py-3 text-left font-medium text-xs sm:text-sm hidden xl:table-cell">Registro</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-12 text-center text-muted-foreground">
+                    <td colSpan={6} className="px-4 py-12 text-center text-muted-foreground">
                       <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
                       Cargando datos...
                     </td>
                   </tr>
                 ) : inscripciones.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-12 text-center text-muted-foreground">
+                    <td colSpan={6} className="px-4 py-12 text-center text-muted-foreground">
                       No hay inscripciones registradas
                     </td>
                   </tr>
@@ -236,23 +308,21 @@ export function AdminDashboard({ adminName, onLogout }: AdminDashboardProps) {
                       <td className="px-3 sm:px-4 py-3 max-w-[120px] sm:max-w-xs truncate text-xs sm:text-sm" title={row.evento}>
                         {row.evento}
                       </td>
-                      <td className="px-3 sm:px-4 py-3 whitespace-nowrap text-xs hidden lg:table-cell">{row.dia}</td>
-                      <td className="px-3 sm:px-4 py-3 whitespace-nowrap text-xs hidden lg:table-cell">{row.hora}</td>
-                      <td className="px-3 sm:px-4 py-3 text-xs hidden xl:table-cell">{row.sede}</td>
-                      <td className="px-3 sm:px-4 py-3 text-xs text-muted-foreground whitespace-nowrap hidden xl:table-cell">
-                        {row.fecha_registro ? new Date(row.fecha_registro).toLocaleDateString('es-MX') : '-'}
+                      <td className="px-3 sm:px-4 py-3 text-center text-xs font-medium">
+                        <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-[#1a3a5c]/10 text-[#1a3a5c]">
+                          {getDiaNumero(row.dia)}
+                        </span>
                       </td>
+                      <td className="px-3 sm:px-4 py-3 whitespace-nowrap text-xs hidden lg:table-cell">{row.hora}</td>
                     </tr>
                   ))
                 )}
               </tbody>
             </table>
           </div>
-          {inscripciones.length > 0 && (
-            <div className="px-4 py-3 bg-muted/30 border-t text-xs sm:text-sm text-muted-foreground">
-              Mostrando {inscripciones.length} registro{inscripciones.length !== 1 ? 's' : ''}
-            </div>
-          )}
+          <div className="px-4 py-3 bg-muted/30 border-t text-xs sm:text-sm text-muted-foreground">
+            Mostrando ultimos {inscripciones.length} registro{inscripciones.length !== 1 ? 's' : ''} - Descarga el Excel para ver el reporte completo
+          </div>
         </Card>
       </main>
     </div>

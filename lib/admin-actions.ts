@@ -37,7 +37,7 @@ export async function validarAdministrativo(usuario: string): Promise<{
   return { success: false, error: 'Usuario no autorizado' };
 }
 
-export async function obtenerReporteInscripciones(): Promise<{
+export async function obtenerReporteInscripciones(limit?: number): Promise<{
   success: boolean;
   data?: Array<{
     matricula: string;
@@ -54,6 +54,7 @@ export async function obtenerReporteInscripciones(): Promise<{
   error?: string;
 }> {
   try {
+    const limitClause = limit ? `LIMIT ${limit}` : '';
     const result = await db.execute({
       sql: `
         SELECT 
@@ -71,6 +72,7 @@ export async function obtenerReporteInscripciones(): Promise<{
         LEFT JOIN alumnos_activos a ON i.alumno_matricula = a.matricula
         LEFT JOIN eventos_comiin e ON i.evento_id = e.id
         ORDER BY i.fecha_registro DESC, a.paterno, a.nombre
+        ${limitClause}
       `,
     });
 
