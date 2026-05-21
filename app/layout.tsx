@@ -8,11 +8,31 @@ const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: 'Registro Congreso Multidisciplinario',
-  description: 'Registro de eventos para el Congreso Multidisciplinario de Investigación e Innovación',
-  generator: 'v0.app',
+  description: 'Registro de eventos para el Congreso Multidisciplinario de Investigacion e Innovacion. 28-30 Mayo 2024.',
   icons: {
     icon: '/favicon.jpg',
     apple: '/favicon.jpg',
+  },
+  openGraph: {
+    title: 'Congreso Multidisciplinario de Investigacion e Innovacion',
+    description: 'Registro de eventos para el Congreso Multidisciplinario de Investigacion e Innovacion. 28-30 Mayo 2024.',
+    images: [
+      {
+        url: '/og-image.jpg',
+        width: 1200,
+        height: 630,
+        alt: 'Congreso Multidisciplinario de Investigacion e Innovacion',
+      },
+    ],
+    type: 'website',
+    locale: 'es_MX',
+    siteName: 'Congreso COMIIN',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Congreso Multidisciplinario de Investigacion e Innovacion',
+    description: 'Registro de eventos para el Congreso. 28-30 Mayo 2024.',
+    images: ['/og-image.jpg'],
   },
 }
 
