@@ -28,6 +28,7 @@ type ReporteData = {
 export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [inscripciones, setInscripciones] = useState<ReporteData[]>([]);
   const [resumen, setResumen] = useState({
     totalInscripciones: 0,
     totalAlumnos: 0,
@@ -35,14 +36,20 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   });
 
   useEffect(() => {
-    loadResumen();
+    loadData();
   }, []);
 
-  const loadResumen = async () => {
+  const loadData = async () => {
     setIsLoading(true);
     try {
-      const data = await obtenerResumenDashboard();
-      setResumen(data);
+      const [resumenData, reporteData] = await Promise.all([
+        obtenerResumenDashboard(),
+        obtenerReporteInscripciones(),
+      ]);
+      setResumen(resumenData);
+      if (reporteData.success && reporteData.data) {
+        setInscripciones(reporteData.data);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -51,15 +58,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const handleExportExcel = async () => {
     setIsExporting(true);
     try {
-      const result = await obtenerReporteInscripciones();
-      
-      if (!result.success || !result.data) {
-        alert(result.error || 'Error al obtener datos');
-        return;
-      }
-
-      // Prepare data for Excel with Spanish headers
-      const excelData = result.data.map((row: ReporteData) => ({
+      const excelData = inscripciones.map((row) => ({
         'Matricula': row.matricula,
         'Nombre del Alumno': row.nombre_alumno,
         'Programa Academico': row.programa,
@@ -72,28 +71,15 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         'Fecha de Registro': row.fecha_registro ? new Date(row.fecha_registro).toLocaleString('es-MX') : '',
       }));
 
-      // Create workbook and worksheet
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.json_to_sheet(excelData);
-
-      // Set column widths
       ws['!cols'] = [
-        { wch: 12 }, // Matricula
-        { wch: 35 }, // Nombre
-        { wch: 30 }, // Programa
-        { wch: 10 }, // ID Evento
-        { wch: 50 }, // Evento
-        { wch: 20 }, // Dia
-        { wch: 10 }, // Hora
-        { wch: 25 }, // Sede
-        { wch: 20 }, // Clasificacion
-        { wch: 20 }, // Fecha
+        { wch: 12 }, { wch: 35 }, { wch: 30 }, { wch: 10 }, { wch: 50 },
+        { wch: 20 }, { wch: 10 }, { wch: 25 }, { wch: 20 }, { wch: 20 },
       ];
-
       XLSX.utils.book_append_sheet(wb, ws, 'Inscripciones');
 
-      // Create a second sheet with summary by event
-      const eventSummary = result.data.reduce((acc: Record<string, number>, row: ReporteData) => {
+      const eventSummary = inscripciones.reduce((acc: Record<string, number>, row) => {
         const key = row.evento || 'Sin evento';
         acc[key] = (acc[key] || 0) + 1;
         return acc;
@@ -108,14 +94,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       wsSummary['!cols'] = [{ wch: 50 }, { wch: 15 }];
       XLSX.utils.book_append_sheet(wb, wsSummary, 'Resumen por Evento');
 
-      // Generate filename with date
       const fecha = new Date().toISOString().split('T')[0];
-      const filename = `inscripciones_comiin_${fecha}.xlsx`;
-
-      // Download
-      XLSX.writeFile(wb, filename);
-    } catch (error) {
-      alert('Error al exportar datos');
+      XLSX.writeFile(wb, `inscripciones_comiin_${fecha}.xlsx`);
     } finally {
       setIsExporting(false);
     }
@@ -129,7 +109,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
           <div className="flex items-center gap-4">
             <Image
               src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/LOGO-BLANCO-ZJYsSidUIe6mzTHOqlPSn41svgcW5x.avif"
-              alt="Congreso Logo"
+              alt="Logo"
               width={45}
               height={45}
               className="object-contain"
@@ -137,14 +117,10 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
             />
             <div>
               <h1 className="text-sm font-bold">Panel Administrativo</h1>
-              <p className="text-xs opacity-80">Congreso COMIIN 2024</p>
+              <p className="text-xs opacity-80">Congreso COMIIN</p>
             </div>
           </div>
-          <Button
-            variant="ghost"
-            onClick={onLogout}
-            className="text-white hover:bg-white/10"
-          >
+          <Button variant="ghost" onClick={onLogout} className="text-white hover:bg-white/10">
             <LogOut className="w-4 h-4 mr-2" />
             Salir
           </Button>
@@ -153,11 +129,6 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold text-[#1a3a5c]">Dashboard de Inscripciones</h2>
-          <p className="text-muted-foreground">Consulta y descarga el reporte de alumnos inscritos</p>
-        </div>
-
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <Card className="p-6 border-l-4 border-l-[#1a3a5c]">
@@ -203,51 +174,83 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
           </Card>
         </div>
 
-        {/* Actions */}
-        <Card className="p-6">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div>
-              <h3 className="text-lg font-semibold text-foreground">Exportar Datos</h3>
-              <p className="text-sm text-muted-foreground">
-                Descarga el listado completo de inscripciones en formato Excel
-              </p>
-            </div>
-            <div className="flex gap-3">
-              <Button
-                variant="outline"
-                onClick={loadResumen}
-                disabled={isLoading}
-              >
-                <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-                Actualizar
-              </Button>
-              <Button
-                onClick={handleExportExcel}
-                disabled={isExporting}
-                className="bg-[#1a3a5c] hover:bg-[#2d5a7b] text-white"
-              >
-                {isExporting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Generando...
-                  </>
-                ) : (
-                  <>
-                    <Download className="w-4 h-4 mr-2" />
-                    Descargar Excel
-                  </>
-                )}
-              </Button>
-            </div>
+        {/* Actions Bar */}
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+          <h2 className="text-xl font-semibold text-[#1a3a5c]">Listado de Inscripciones</h2>
+          <div className="flex gap-3">
+            <Button variant="outline" onClick={loadData} disabled={isLoading}>
+              <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              Actualizar
+            </Button>
+            <Button
+              onClick={handleExportExcel}
+              disabled={isExporting || inscripciones.length === 0}
+              className="bg-[#1a3a5c] hover:bg-[#2d5a7b] text-white"
+            >
+              {isExporting ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4 mr-2" />
+              )}
+              Descargar Excel
+            </Button>
           </div>
+        </div>
 
-          <div className="mt-6 p-4 bg-muted/50 rounded-lg">
-            <h4 className="text-sm font-medium text-foreground mb-2">El archivo Excel incluye:</h4>
-            <ul className="text-sm text-muted-foreground space-y-1">
-              <li>Hoja 1: Listado completo de inscripciones (Matricula, Nombre, Programa, Evento, Dia, Hora, Sede, etc.)</li>
-              <li>Hoja 2: Resumen de inscritos por evento</li>
-            </ul>
+        {/* Data Table */}
+        <Card className="overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-[#1a3a5c] text-white">
+                <tr>
+                  <th className="px-4 py-3 text-left font-medium">Matricula</th>
+                  <th className="px-4 py-3 text-left font-medium">Alumno</th>
+                  <th className="px-4 py-3 text-left font-medium">Programa</th>
+                  <th className="px-4 py-3 text-left font-medium">Evento</th>
+                  <th className="px-4 py-3 text-left font-medium">Dia</th>
+                  <th className="px-4 py-3 text-left font-medium">Hora</th>
+                  <th className="px-4 py-3 text-left font-medium">Sede</th>
+                  <th className="px-4 py-3 text-left font-medium">Registro</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={8} className="px-4 py-12 text-center text-muted-foreground">
+                      <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
+                      Cargando datos...
+                    </td>
+                  </tr>
+                ) : inscripciones.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="px-4 py-12 text-center text-muted-foreground">
+                      No hay inscripciones registradas
+                    </td>
+                  </tr>
+                ) : (
+                  inscripciones.map((row, idx) => (
+                    <tr key={`${row.matricula}-${row.evento_id}-${idx}`} className="hover:bg-muted/50">
+                      <td className="px-4 py-3 font-mono text-xs">{row.matricula}</td>
+                      <td className="px-4 py-3 font-medium">{row.nombre_alumno}</td>
+                      <td className="px-4 py-3 text-muted-foreground text-xs">{row.programa}</td>
+                      <td className="px-4 py-3 max-w-xs truncate" title={row.evento}>{row.evento}</td>
+                      <td className="px-4 py-3 whitespace-nowrap">{row.dia}</td>
+                      <td className="px-4 py-3 whitespace-nowrap">{row.hora}</td>
+                      <td className="px-4 py-3 text-xs">{row.sede}</td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
+                        {row.fecha_registro ? new Date(row.fecha_registro).toLocaleDateString('es-MX') : '-'}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
+          {inscripciones.length > 0 && (
+            <div className="px-4 py-3 bg-muted/30 border-t text-sm text-muted-foreground">
+              Mostrando {inscripciones.length} registro{inscripciones.length !== 1 ? 's' : ''}
+            </div>
+          )}
         </Card>
       </main>
     </div>
