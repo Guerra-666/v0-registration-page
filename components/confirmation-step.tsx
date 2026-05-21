@@ -124,15 +124,6 @@ Hora de registro: ${new Date().toLocaleTimeString('es-MX')}
               </div>
             </div>
 
-            {/* Message */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <p className="text-sm text-blue-900">
-                Se ha enviado una confirmación a{' '}
-                <span className="font-semibold">tu correo institucional</span>.
-                Conserva este comprobante para el día del evento.
-              </p>
-            </div>
-
             {/* Actions */}
             <div className="flex flex-col sm:flex-row gap-3 pt-4">
               <Button

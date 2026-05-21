@@ -49,48 +49,67 @@ export function EventosStep({
 
   const isValid = selectedEvents.size >= 3;
 
-  const renderEventCard = (evento: Evento) => (
-    <Card key={evento.id} className="p-4 border-l-4 border-l-primary hover:shadow-md transition-shadow">
-      <div className="flex gap-4">
-        <Checkbox
-          id={`event-${evento.id}`}
-          checked={selectedEvents.has(evento.id)}
-          onCheckedChange={() => toggleEvent(evento.id)}
-          disabled={isLoading}
-          className="mt-1"
-        />
-        <div className="flex-1">
-          <label
-            htmlFor={`event-${evento.id}`}
-            className="flex flex-col gap-2 cursor-pointer"
-          >
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex-1">
-                <h3 className="font-semibold text-foreground">
+  const renderEventCard = (evento: Evento) => {
+    const isDestacado = evento.clasificacion?.toLowerCase().includes('general') || 
+                        evento.clasificacion?.toLowerCase().includes('destacad');
+    
+    return (
+      <Card 
+        key={evento.id} 
+        className={`p-0 overflow-hidden hover:shadow-md transition-shadow ${
+          isDestacado ? 'border-[#1a3a5c]' : 'border-border'
+        }`}
+      >
+        <div className="flex">
+          {/* Time badge - like reference design */}
+          <div className="bg-[#1a3a5c] text-white px-4 py-4 flex flex-col items-center justify-center min-w-[80px]">
+            <span className="text-xl font-bold">{evento.hora.split(' ')[0]}</span>
+            <span className="text-xs opacity-90">{evento.hora.includes('AM') ? 'AM' : evento.hora.includes('PM') ? 'PM' : ''}</span>
+          </div>
+          
+          <div className="flex-1 p-4">
+            <div className="flex gap-4 items-start">
+              <Checkbox
+                id={`event-${evento.id}`}
+                checked={selectedEvents.has(evento.id)}
+                onCheckedChange={() => toggleEvent(evento.id)}
+                disabled={isLoading}
+                className="mt-1"
+              />
+              <label
+                htmlFor={`event-${evento.id}`}
+                className="flex-1 cursor-pointer"
+              >
+                <h3 className="font-semibold text-[#1a3a5c] leading-tight mb-2">
                   {evento.actividad}
                 </h3>
-                <p className="text-sm text-muted-foreground">
-                  {evento.ponente}
-                </p>
-              </div>
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary whitespace-nowrap">
-                {evento.clasificacion}
-              </span>
+                <div className="space-y-1 text-sm text-muted-foreground">
+                  <p className="flex items-center gap-2">
+                    <span className="inline-block w-4 h-4 text-[#1a3a5c]">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                        <circle cx="12" cy="7" r="4" />
+                      </svg>
+                    </span>
+                    {evento.ponente}
+                  </p>
+                  <p className="flex items-center gap-2">
+                    <span className="inline-block w-4 h-4 text-[#1a3a5c]">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                        <circle cx="12" cy="10" r="3" />
+                      </svg>
+                    </span>
+                    {evento.clasificacion} | {evento.sede}
+                  </p>
+                </div>
+              </label>
             </div>
-
-            <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-              <div className="flex items-center gap-1">
-                <span className="font-semibold">{evento.hora}</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <span>{evento.sede}</span>
-              </div>
-            </div>
-          </label>
+          </div>
         </div>
-      </div>
-    </Card>
-  );
+      </Card>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted py-8 px-4">

@@ -101,29 +101,29 @@ export default function RegistroPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="bg-primary text-primary-foreground shadow-md sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="relative w-10 h-10 bg-primary-foreground rounded-lg p-1">
-              <Image
-                src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/LOGO-BLANCO-ZJYsSidUIe6mzTHOqlPSn41svgcW5x.avif"
-                alt="Congreso Logo"
-                width={40}
-                height={40}
-                className="object-contain"
-                priority
-              />
-            </div>
-            <div>
-              <h1 className="text-lg font-bold">Congreso COMIIN</h1>
-              <p className="text-xs opacity-90">
-                Multidisciplinario de Investigación e Innovación
-              </p>
+      {/* Header - Premium Design */}
+      <header className="bg-[#1a3a5c] text-white shadow-lg sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Image
+              src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/LOGO-BLANCO-ZJYsSidUIe6mzTHOqlPSn41svgcW5x.avif"
+              alt="Congreso Logo"
+              width={50}
+              height={50}
+              className="object-contain"
+              priority
+            />
+            <div className="hidden sm:block">
+              <h1 className="text-sm font-bold leading-tight">Congreso</h1>
+              <p className="text-xs leading-tight opacity-90">Multidisciplinario de</p>
+              <p className="text-xs leading-tight opacity-90">Investigación e Innovación</p>
             </div>
           </div>
-          <div className="text-right hidden sm:block">
-            <p className="text-sm font-medium">28 - 30 de Mayo 2024</p>
+          <nav className="hidden md:flex items-center gap-1">
+            <span className="px-4 py-2 bg-[#2d5a7b] rounded-lg text-sm font-medium">Registro</span>
+          </nav>
+          <div className="text-right md:hidden">
+            <p className="text-xs font-medium">28 - 30 Mayo</p>
           </div>
         </div>
       </header>
