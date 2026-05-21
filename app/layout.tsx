@@ -18,7 +18,7 @@ export const metadata: Metadata = {
     description: 'Registro de eventos para el Congreso Multidisciplinario de Investigacion e Innovacion. 28-30 Mayo 2024.',
     images: [
       {
-        url: '/og-image.jpg',
+        url: '/og-image.png',
         width: 1200,
         height: 630,
         alt: 'Congreso Multidisciplinario de Investigacion e Innovacion',
@@ -32,7 +32,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Congreso Multidisciplinario de Investigacion e Innovacion',
     description: 'Registro de eventos para el Congreso. 28-30 Mayo 2024.',
-    images: ['/og-image.jpg'],
+    images: ['/og-image.png'],
   },
 }
 
