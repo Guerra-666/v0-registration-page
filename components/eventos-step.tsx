@@ -42,12 +42,12 @@ export function EventosStep({
   };
 
   const handleConfirm = () => {
-    if (selectedEvents.size >= 4) {
+    if (selectedEvents.size >= 1) {
       onSuccess(Array.from(selectedEvents));
     }
   };
 
-  const isValid = selectedEvents.size >= 4;
+  const isValid = selectedEvents.size >= 1;
 
   const renderEventCard = (evento: Evento) => {
     const isDestacado = evento.clasificacion?.toLowerCase().includes('general') || 
@@ -130,7 +130,7 @@ export function EventosStep({
         {/* Info Box */}
         <Card className="p-3 sm:p-4 mb-4 sm:mb-6 bg-[#1a3a5c]/5 border-[#1a3a5c]/20">
           <p className="text-xs sm:text-sm text-foreground">
-            <span className="font-semibold">Requisito:</span> Selecciona minimo 4 eventos
+            Selecciona los eventos a los que quieras asistir
           </p>
         </Card>
 
@@ -196,11 +196,7 @@ export function EventosStep({
                   <p className="font-semibold text-foreground text-sm sm:text-base">
                     {selectedEvents.size} evento{selectedEvents.size !== 1 ? 's' : ''}
                   </p>
-                  {!isValid && (
-                    <p className="text-[10px] sm:text-xs text-muted-foreground">
-                      Faltan {4 - selectedEvents.size}
-                    </p>
-                  )}
+
                 </div>
               </div>
 

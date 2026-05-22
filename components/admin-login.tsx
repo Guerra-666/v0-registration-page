@@ -37,15 +37,18 @@ export function AdminLogin({ onSuccess }: AdminLoginProps) {
   return (
     <div className="min-h-screen bg-muted/30 flex items-center justify-center p-4">
       <form onSubmit={handleSubmit} className="w-full max-w-xs space-y-4">
-        <Input
-          type="text"
-          value={usuario}
-          onChange={(e) => setUsuario(e.target.value)}
-          disabled={isLoading}
-          className={`h-11 text-base ${error ? 'border-red-400' : ''}`}
-          autoComplete="off"
-          autoFocus
-        />
+        <div className="space-y-1.5">
+          <p className="text-sm text-muted-foreground">Usuario SIGA</p>
+          <Input
+            type="text"
+            value={usuario}
+            onChange={(e) => setUsuario(e.target.value)}
+            disabled={isLoading}
+            className={`h-11 text-base ${error ? 'border-red-400' : ''}`}
+            autoComplete="off"
+            autoFocus
+          />
+        </div>
         <Button
           type="submit"
           disabled={isLoading || !usuario.trim()}

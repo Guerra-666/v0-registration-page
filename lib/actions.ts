@@ -60,8 +60,8 @@ export async function registrarInscripciones(
   success: boolean;
   error?: string;
 }> {
-  if (!matricula.trim() || eventoIds.length < 4) {
-    return { success: false, error: 'Se requiere seleccionar al menos 4 eventos' };
+  if (!matricula.trim() || eventoIds.length < 1) {
+    return { success: false, error: 'Selecciona al menos un evento' };
   }
 
   const fechaRegistro = new Date().toISOString();
