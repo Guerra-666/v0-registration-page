@@ -235,7 +235,7 @@ export function EventosStep({
         {/* Info Box */}
         <Card className="p-3 sm:p-4 mb-4 sm:mb-6 bg-[#1a3a5c]/5 border-[#1a3a5c]/20">
           <p className="text-xs sm:text-sm text-foreground">
-            Selecciona los eventos a los que quieras asistir. Los eventos con horario conflictivo se deshabilitaran automaticamente.
+            Selecciona los eventos a los que quieras asistir.
           </p>
         </Card>
 
