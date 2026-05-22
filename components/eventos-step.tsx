@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronRight, AlertCircle, Loader2, Check } from 'lucide-react';
+import { ChevronRight, AlertCircle, Loader2, Check, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -19,6 +19,54 @@ interface EventosStepProps {
   isLoading: boolean;
 }
 
+// Parse "07:30 AM" or "01:00 PM" -> minutes from midnight
+function parseHoraToMinutes(hora: string): number {
+  if (!hora) return 0;
+  const match = hora.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+  if (!match) return 0;
+  let h = parseInt(match[1], 10);
+  const m = parseInt(match[2], 10);
+  const period = (match[3] || '').toUpperCase();
+  if (period === 'PM' && h !== 12) h += 12;
+  if (period === 'AM' && h === 12) h = 0;
+  return h * 60 + m;
+}
+
+// Parse duration like "60", "90", "1.5 hrs", "2 horas" -> minutes
+function parseDuracionToMinutes(duracion: string): number {
+  if (!duracion) return 60; // default 60 min
+  const num = parseFloat(duracion);
+  if (isNaN(num)) return 60;
+  // If it looks like hours (e.g. 1.5, 2) — values <= 8 are treated as hours
+  if (num <= 8) return Math.round(num * 60);
+  // Otherwise treat as minutes directly
+  return Math.round(num);
+}
+
+// Check if two time ranges overlap
+function hasTimeOverlap(
+  startA: number, endA: number,
+  startB: number, endB: number
+): boolean {
+  return startA < endB && startB < endA;
+}
+
+// Given a candidate event and current selected events (same day), find conflicting event if any
+function findConflict(candidate: Evento, selected: Evento[]): Evento | null {
+  const startC = parseHoraToMinutes(candidate.hora);
+  const endC = startC + parseDuracionToMinutes(candidate.duracion);
+
+  for (const sel of selected) {
+    if (sel.dia !== candidate.dia) continue;
+    const startS = parseHoraToMinutes(sel.hora);
+    const endS = startS + parseDuracionToMinutes(sel.duracion);
+    if (hasTimeOverlap(startC, endC, startS, endS)) {
+      return sel;
+    }
+  }
+  return null;
+}
+
 export function EventosStep({
   alumno,
   eventos,
@@ -27,17 +75,46 @@ export function EventosStep({
 }: EventosStepProps) {
   const [selectedEvents, setSelectedEvents] = useState<Set<number>>(new Set());
   const [activeTab, setActiveTab] = useState('jueves');
+  // conflictWarning: maps event id -> name of conflicting event
+  const [conflictWarning, setConflictWarning] = useState<{ id: number; conflictsWith: string } | null>(null);
 
-  const eventosJueves = eventos.filter((e) => e.dia.toLowerCase().includes('28'));
-  const eventosViernes = eventos.filter((e) => e.dia.toLowerCase().includes('29'));
+  const eventosJueves = eventos.filter((e) => {
+    const d = e.dia?.toString() ?? '';
+    return d === '1' || d.includes('28');
+  });
+  const eventosViernes = eventos.filter((e) => {
+    const d = e.dia?.toString() ?? '';
+    return d === '2' || d.includes('29');
+  });
+
+  const selectedEventObjects = eventos.filter((e) => selectedEvents.has(e.id));
 
   const toggleEvent = (id: number) => {
+    setConflictWarning(null);
     const newSelected = new Set(selectedEvents);
+
     if (newSelected.has(id)) {
+      // Deselect — always allowed
       newSelected.delete(id);
-    } else {
-      newSelected.add(id);
+      setSelectedEvents(newSelected);
+      return;
     }
+
+    // Trying to select — check for conflicts
+    const candidate = eventos.find((e) => e.id === id);
+    if (!candidate) return;
+
+    const alreadySelectedSameDay = selectedEventObjects.filter(
+      (e) => e.dia === candidate.dia
+    );
+
+    const conflict = findConflict(candidate, alreadySelectedSameDay);
+    if (conflict) {
+      setConflictWarning({ id, conflictsWith: conflict.actividad });
+      return; // Block selection
+    }
+
+    newSelected.add(id);
     setSelectedEvents(newSelected);
   };
 
@@ -50,64 +127,92 @@ export function EventosStep({
   const isValid = selectedEvents.size >= 1;
 
   const renderEventCard = (evento: Evento) => {
-    const isDestacado = evento.clasificacion?.toLowerCase().includes('general') || 
-                        evento.clasificacion?.toLowerCase().includes('destacad');
-    
+    const isSelected = selectedEvents.has(evento.id);
+    const isConflicted = !isSelected && (() => {
+      const alreadySelectedSameDay = selectedEventObjects.filter(
+        (e) => e.dia === evento.dia
+      );
+      return findConflict(evento, alreadySelectedSameDay) !== null;
+    })();
+
+    const showConflictBanner = conflictWarning?.id === evento.id;
+
     return (
-      <Card 
-        key={evento.id} 
-        className={`p-0 overflow-hidden hover:shadow-md transition-shadow ${
-          isDestacado ? 'border-[#1a3a5c]' : 'border-border'
-        }`}
-      >
-        <div className="flex">
-          {/* Time badge */}
-          <div className="bg-[#1a3a5c] text-white px-2 sm:px-4 py-3 sm:py-4 flex flex-col items-center justify-center min-w-[60px] sm:min-w-[80px]">
-            <span className="text-base sm:text-xl font-bold">{evento.hora.split(' ')[0]}</span>
-            <span className="text-[10px] sm:text-xs opacity-90">{evento.hora.includes('AM') ? 'AM' : evento.hora.includes('PM') ? 'PM' : ''}</span>
-          </div>
-          
-          <div className="flex-1 p-3 sm:p-4">
-            <div className="flex gap-2 sm:gap-4 items-start">
-              <Checkbox
-                id={`event-${evento.id}`}
-                checked={selectedEvents.has(evento.id)}
-                onCheckedChange={() => toggleEvent(evento.id)}
-                disabled={isLoading}
-                className="mt-0.5 sm:mt-1"
-              />
-              <label
-                htmlFor={`event-${evento.id}`}
-                className="flex-1 cursor-pointer"
-              >
-                <h3 className="font-semibold text-[#1a3a5c] leading-tight mb-1 sm:mb-2 text-sm sm:text-base">
-                  {evento.actividad}
-                </h3>
-                <div className="space-y-0.5 sm:space-y-1 text-xs sm:text-sm text-muted-foreground">
-                  <p className="flex items-center gap-1 sm:gap-2">
-                    <span className="inline-block w-3 h-3 sm:w-4 sm:h-4 text-[#1a3a5c] flex-shrink-0">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                        <circle cx="12" cy="7" r="4" />
-                      </svg>
-                    </span>
-                    <span className="truncate">{evento.ponente}</span>
-                  </p>
-                  <p className="flex items-center gap-1 sm:gap-2">
-                    <span className="inline-block w-3 h-3 sm:w-4 sm:h-4 text-[#1a3a5c] flex-shrink-0">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                        <circle cx="12" cy="10" r="3" />
-                      </svg>
-                    </span>
-                    <span className="truncate">{evento.clasificacion} | {evento.sede}</span>
-                  </p>
-                </div>
-              </label>
+      <div key={evento.id}>
+        <Card
+          className={`p-0 overflow-hidden transition-all ${
+            isSelected
+              ? 'border-[#1a3a5c] ring-1 ring-[#1a3a5c]/40'
+              : isConflicted
+              ? 'opacity-50 border-border'
+              : 'hover:shadow-md border-border'
+          }`}
+        >
+          <div className="flex">
+            {/* Time badge */}
+            <div className={`px-2 sm:px-4 py-3 sm:py-4 flex flex-col items-center justify-center min-w-[60px] sm:min-w-[80px] ${
+              isConflicted ? 'bg-muted text-muted-foreground' : 'bg-[#1a3a5c] text-white'
+            }`}>
+              <span className="text-base sm:text-xl font-bold">{evento.hora.split(' ')[0]}</span>
+              <span className="text-[10px] sm:text-xs opacity-90">
+                {evento.hora.includes('AM') ? 'AM' : evento.hora.includes('PM') ? 'PM' : ''}
+              </span>
+            </div>
+
+            <div className="flex-1 p-3 sm:p-4">
+              <div className="flex gap-2 sm:gap-4 items-start">
+                <Checkbox
+                  id={`event-${evento.id}`}
+                  checked={isSelected}
+                  onCheckedChange={() => toggleEvent(evento.id)}
+                  disabled={isLoading || isConflicted}
+                  className="mt-0.5 sm:mt-1"
+                />
+                <label
+                  htmlFor={`event-${evento.id}`}
+                  className={`flex-1 ${isConflicted ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                >
+                  <h3 className="font-semibold text-[#1a3a5c] leading-tight mb-1 sm:mb-2 text-sm sm:text-base">
+                    {evento.actividad}
+                  </h3>
+                  <div className="space-y-0.5 sm:space-y-1 text-xs sm:text-sm text-muted-foreground">
+                    <p className="flex items-center gap-1 sm:gap-2">
+                      <span className="inline-block w-3 h-3 sm:w-4 sm:h-4 text-[#1a3a5c] flex-shrink-0">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                          <circle cx="12" cy="7" r="4" />
+                        </svg>
+                      </span>
+                      <span className="truncate">{evento.ponente}</span>
+                    </p>
+                    <p className="flex items-center gap-1 sm:gap-2">
+                      <span className="inline-block w-3 h-3 sm:w-4 sm:h-4 text-[#1a3a5c] flex-shrink-0">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                          <circle cx="12" cy="10" r="3" />
+                        </svg>
+                      </span>
+                      <span className="truncate">{evento.clasificacion} | {evento.sede}</span>
+                    </p>
+                  </div>
+                </label>
+              </div>
             </div>
           </div>
-        </div>
-      </Card>
+        </Card>
+
+        {/* Conflict warning banner */}
+        {showConflictBanner && (
+          <div className="flex items-start gap-2 mt-1 mb-1 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
+            <Clock className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+            <span>
+              Horario ocupado — ya seleccionaste{' '}
+              <span className="font-semibold">{conflictWarning.conflictsWith}</span>{' '}
+              a la misma hora.
+            </span>
+          </div>
+        )}
+      </div>
     );
   };
 
@@ -130,12 +235,12 @@ export function EventosStep({
         {/* Info Box */}
         <Card className="p-3 sm:p-4 mb-4 sm:mb-6 bg-[#1a3a5c]/5 border-[#1a3a5c]/20">
           <p className="text-xs sm:text-sm text-foreground">
-            Selecciona los eventos a los que quieras asistir
+            Selecciona los eventos a los que quieras asistir. Los eventos con horario conflictivo se deshabilitaran automaticamente.
           </p>
         </Card>
 
         {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-4 sm:mb-6">
+        <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setConflictWarning(null); }} className="mb-4 sm:mb-6">
           <TabsList className="grid w-full grid-cols-2 h-auto">
             <TabsTrigger value="jueves" className="text-xs sm:text-sm py-2 sm:py-3">
               <span className="hidden sm:inline">Jueves 28 de mayo</span>
@@ -192,12 +297,9 @@ export function EventosStep({
                 ) : (
                   <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600 flex-shrink-0" />
                 )}
-                <div>
-                  <p className="font-semibold text-foreground text-sm sm:text-base">
-                    {selectedEvents.size} evento{selectedEvents.size !== 1 ? 's' : ''}
-                  </p>
-
-                </div>
+                <p className="font-semibold text-foreground text-sm sm:text-base">
+                  {selectedEvents.size} evento{selectedEvents.size !== 1 ? 's' : ''} seleccionado{selectedEvents.size !== 1 ? 's' : ''}
+                </p>
               </div>
 
               <Button
@@ -220,7 +322,7 @@ export function EventosStep({
             </div>
           </Card>
         </div>
-        
+
         {/* Spacer for fixed bottom bar on mobile */}
         <div className="h-20 sm:hidden" />
       </div>
