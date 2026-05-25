@@ -75,7 +75,7 @@ export async function registrarAsistenciaExterno(data: {
 
   try {
     await db.execute({
-      sql: `INSERT INTO asistencias_externos 
+      sql: `INSERT INTO inscripciones_externos 
             (evento_id, nombre, correo, telefono, es_egresado, matricula_egresado, carrera_egresado, fecha_registro) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       args: [
