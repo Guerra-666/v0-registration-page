@@ -56,7 +56,7 @@ export async function obtenerReporteInscripciones(limit?: number): Promise<{
           i.alumno_matricula as matricula,
           a.nombre || ' ' || a.paterno || ' ' || COALESCE(a.materno, '') as nombre_alumno,
           a.programa,
-          e.id_evento as evento_id,
+          e.id as evento_id,
           e.actividad as evento,
           e.dia,
           e.hora,
@@ -65,7 +65,7 @@ export async function obtenerReporteInscripciones(limit?: number): Promise<{
           i.fecha_registro
         FROM inscripciones_eventos i
         LEFT JOIN alumnos_activos a ON i.alumno_matricula = a.matricula
-        LEFT JOIN listado_final_eventos e ON i.evento_id = e.id_evento
+        LEFT JOIN eventos_comiin e ON i.evento_id = e.id
         ORDER BY i.fecha_registro DESC, a.paterno, a.nombre
         ${limitClause}
       `,
@@ -100,7 +100,7 @@ export async function obtenerResumenDashboard(): Promise<{
     const [inscripciones, alumnos, eventos, externos] = await Promise.all([
       db.execute({ sql: 'SELECT COUNT(*) as count FROM inscripciones_eventos' }),
       db.execute({ sql: 'SELECT COUNT(DISTINCT alumno_matricula) as count FROM inscripciones_eventos' }),
-      db.execute({ sql: 'SELECT COUNT(*) as count FROM listado_final_eventos' }),
+      db.execute({ sql: 'SELECT COUNT(*) as count FROM eventos_comiin' }),
       db.execute({ sql: 'SELECT COUNT(*) as count FROM inscripciones_externos' }),
     ]);
 
