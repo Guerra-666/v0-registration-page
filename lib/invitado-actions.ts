@@ -76,16 +76,15 @@ export async function registrarAsistenciaExterno(data: {
   try {
     await db.execute({
       sql: `INSERT INTO inscripciones_externos 
-            (evento_id, nombre, correo, telefono, es_egresado, matricula_egresado, carrera_egresado, fecha_registro) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            (nombre_completo, correo, telefono, matricula, carrera, evento_id, fecha_registro) 
+            VALUES (?, ?, ?, ?, ?, ?, ?)`,
       args: [
-        evento_id,
         nombre.trim(),
         correo.trim(),
         telefono.trim(),
-        es_egresado ? 1 : 0,
-        matricula_egresado?.trim() || null,
-        carrera_egresado?.trim() || null,
+        es_egresado ? (matricula_egresado?.trim() || null) : null,
+        es_egresado ? (carrera_egresado?.trim() || null) : null,
+        evento_id,
         fechaRegistro,
       ],
     });
@@ -93,29 +92,6 @@ export async function registrarAsistenciaExterno(data: {
     return { success: true };
   } catch (error: any) {
     console.error('[v0] Error registro externo:', error.message);
-    // Si falla por campo evento_id, reintentar sin él
-    if (error.message?.includes('evento_id') || error.message?.includes('UNIQUE')) {
-      try {
-        await db.execute({
-          sql: `INSERT INTO inscripciones_externos 
-                (nombre, correo, telefono, es_egresado, matricula_egresado, carrera_egresado, fecha_registro) 
-                VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          args: [
-            nombre.trim(),
-            correo.trim(),
-            telefono.trim(),
-            es_egresado ? 1 : 0,
-            matricula_egresado?.trim() || null,
-            carrera_egresado?.trim() || null,
-            fechaRegistro,
-          ],
-        });
-        return { success: true };
-      } catch (retryError: any) {
-        console.error('[v0] Error reintento:', retryError.message);
-        return { success: false, error: 'Error al registrar: ' + retryError.message };
-      }
-    }
-    return { success: false, error: 'Error: ' + error.message };
+    return { success: false, error: 'Error al registrar: ' + error.message };
   }
 }
