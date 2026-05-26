@@ -68,6 +68,7 @@ export default function RegistroInvitadoPage() {
   const [correo, setCorreo] = useState('');
   const [telefono, setTelefono] = useState('');
   const [esEgresado, setEsEgresado] = useState(false);
+  const [matriculaEgresado, setMatriculaEgresado] = useState('');
   const [carreraEgresado, setCarreraEgresado] = useState('');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -103,7 +104,7 @@ export default function RegistroInvitadoPage() {
     try {
       const result = await registrarAsistenciaAlumno({
         evento_id: idEvento,
-        matricula,
+        matricula: matricula.toUpperCase(),
       });
 
       if (result.success && result.alumno) {
@@ -131,6 +132,7 @@ export default function RegistroInvitadoPage() {
         correo: correo || undefined,
         telefono: telefono || undefined,
         es_egresado: esEgresado,
+        matricula_egresado: esEgresado ? matriculaEgresado : undefined,
         carrera_egresado: esEgresado ? carreraEgresado : undefined,
       });
 
@@ -352,7 +354,7 @@ export default function RegistroInvitadoPage() {
                     id="matricula"
                     type="text"
                     value={matricula}
-                    onChange={(e) => setMatricula(e.target.value)}
+                    onChange={(e) => setMatricula(e.target.value.toUpperCase())}
                     placeholder="Ej: CUH12345678"
                     required
                     disabled={isSubmitting}
@@ -464,27 +466,42 @@ export default function RegistroInvitadoPage() {
               {/* Carrera egresado con transicion */}
               <div
                 className={`overflow-hidden transition-all duration-300 ease-in-out ${
-                  esEgresado ? 'max-h-32 opacity-100' : 'max-h-0 opacity-0'
+                  esEgresado ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
                 }`}
               >
-                <div className="space-y-1.5 pt-2">
-                  <Label htmlFor="carrera_egresado">Carrera de la que egresaste</Label>
-                  <select
-                    id="carrera_egresado"
-                    value={carreraEgresado}
-                    onChange={(e) => setCarreraEgresado(e.target.value)}
-                    disabled={isSubmitting}
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                  >
-                    <option value="">Selecciona tu carrera</option>
-                    {CARRERAS_CUH.map((grupo) => (
-                      <optgroup key={grupo.grupo} label={grupo.grupo}>
-                        {grupo.opciones.map((carrera) => (
-                          <option key={carrera} value={carrera}>{carrera}</option>
-                        ))}
-                      </optgroup>
-                    ))}
-                  </select>
+                <div className="space-y-2.5 pt-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="matricula_egresado">Matricula de Egresado *</Label>
+                    <Input
+                      id="matricula_egresado"
+                      type="text"
+                      value={matriculaEgresado}
+                      onChange={(e) => setMatriculaEgresado(e.target.value.toUpperCase())}
+                      placeholder="Tu matricula"
+                      disabled={isSubmitting}
+                      className="text-center"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="carrera_egresado">Carrera de la que egresaste *</Label>
+                    <select
+                      id="carrera_egresado"
+                      value={carreraEgresado}
+                      onChange={(e) => setCarreraEgresado(e.target.value)}
+                      disabled={isSubmitting}
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    >
+                      <option value="">Selecciona tu carrera</option>
+                      {CARRERAS_CUH.map((grupo) => (
+                        <optgroup key={grupo.grupo} label={grupo.grupo}>
+                          {grupo.opciones.map((carrera) => (
+                            <option key={carrera} value={carrera}>{carrera}</option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </div>
 
@@ -506,6 +523,7 @@ export default function RegistroInvitadoPage() {
                     setCorreo('');
                     setTelefono('');
                     setEsEgresado(false);
+                    setMatriculaEgresado('');
                     setCarreraEgresado('');
                   }}
                   disabled={isSubmitting}

@@ -65,10 +65,11 @@ export async function registrarAsistenciaAlumno(data: {
   }
 
   try {
-    // Verificar que el alumno existe
+    // Convertir a mayúsculas y buscar
+    const matriculaUppercase = matricula.trim().toUpperCase();
     const alumnoResult = await db.execute({
-      sql: 'SELECT nombre, paterno, materno, programa FROM alumnos_activos WHERE matricula = ?',
-      args: [matricula.trim()],
+      sql: 'SELECT nombre, paterno, materno, programa FROM alumnos_activos WHERE UPPER(matricula) = ?',
+      args: [matriculaUppercase],
     });
 
     if (alumnoResult.rows.length === 0) {
@@ -83,7 +84,7 @@ export async function registrarAsistenciaAlumno(data: {
 
     await db.execute({
       sql: 'INSERT OR IGNORE INTO inscripciones_eventos (alumno_matricula, evento_id, fecha_registro) VALUES (?, ?, ?)',
-      args: [matricula.trim(), evento_id, fechaRegistro],
+      args: [matriculaUppercase, evento_id, fechaRegistro],
     });
 
     return { 
@@ -105,22 +106,30 @@ export async function registrarAsistenciaExterno(data: {
   correo?: string;
   telefono?: string;
   es_egresado: boolean;
+  matricula_egresado?: string;
   carrera_egresado?: string;
 }): Promise<{
   success: boolean;
   error?: string;
 }> {
-  const { evento_id, nombre, correo, telefono, es_egresado, carrera_egresado } = data;
+  const { evento_id, nombre, correo, telefono, es_egresado, matricula_egresado, carrera_egresado } = data;
 
   // Solo nombre es obligatorio
   if (!nombre.trim()) {
     return { success: false, error: 'El nombre completo es obligatorio' };
   }
 
+  // Si es egresado, la matricula es obligatoria
+  if (es_egresado && !matricula_egresado?.trim()) {
+    return { success: false, error: 'Si eres egresado, debes ingresar tu matricula' };
+  }
+
   // Fecha generada en el servidor (zona horaria Mexico City)
   const fechaRegistro = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' });
 
   try {
+    const matriculaFinal = es_egresado ? matricula_egresado?.trim().toUpperCase() : null;
+    
     await db.execute({
       sql: `INSERT INTO inscripciones_externos 
             (nombre_completo, correo, telefono, matricula, carrera, evento_id, fecha_registro) 
@@ -129,7 +138,7 @@ export async function registrarAsistenciaExterno(data: {
         nombre.trim(),
         correo?.trim() || null,
         telefono?.trim() || null,
-        null,
+        matriculaFinal || null,
         es_egresado ? (carrera_egresado?.trim() || null) : null,
         evento_id,
         fechaRegistro,
