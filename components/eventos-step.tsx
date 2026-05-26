@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronRight, AlertCircle, Loader2, Check, Clock } from 'lucide-react';
+import { ChevronRight, AlertCircle, Loader2, Check, Clock, Ban } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -100,9 +100,12 @@ export function EventosStep({
       return;
     }
 
-    // Trying to select — check for conflicts
+    // Trying to select — check if cupo lleno
     const candidate = eventos.find((e) => e.id === id);
     if (!candidate) return;
+
+    // Block if cupo lleno
+    if (!candidate.activo) return;
 
     const alreadySelectedSameDay = selectedEventObjects.filter(
       (e) => e.dia === candidate.dia
@@ -128,13 +131,15 @@ export function EventosStep({
 
   const renderEventCard = (evento: Evento) => {
     const isSelected = selectedEvents.has(evento.id);
-    const isConflicted = !isSelected && (() => {
+    const isCupoLleno = !evento.activo;
+    const isConflicted = !isSelected && !isCupoLleno && (() => {
       const alreadySelectedSameDay = selectedEventObjects.filter(
         (e) => e.dia === evento.dia
       );
       return findConflict(evento, alreadySelectedSameDay) !== null;
     })();
 
+    const isDisabled = isCupoLleno || isConflicted;
     const showConflictBanner = conflictWarning?.id === evento.id;
 
     return (
@@ -143,6 +148,8 @@ export function EventosStep({
           className={`p-0 overflow-hidden transition-all ${
             isSelected
               ? 'border-[#1a3a5c] ring-1 ring-[#1a3a5c]/40'
+              : isCupoLleno
+              ? 'opacity-60 border-red-200 bg-red-50/30'
               : isConflicted
               ? 'opacity-50 border-border'
               : 'hover:shadow-md border-border'
@@ -151,12 +158,22 @@ export function EventosStep({
           <div className="flex">
             {/* Time badge */}
             <div className={`px-2 sm:px-4 py-3 sm:py-4 flex flex-col items-center justify-center min-w-[60px] sm:min-w-[80px] ${
-              isConflicted ? 'bg-muted text-muted-foreground' : 'bg-[#1a3a5c] text-white'
+              isCupoLleno ? 'bg-red-400 text-white' : isConflicted ? 'bg-muted text-muted-foreground' : 'bg-[#1a3a5c] text-white'
             }`}>
-              <span className="text-base sm:text-xl font-bold">{evento.hora.split(' ')[0]}</span>
-              <span className="text-[10px] sm:text-xs opacity-90">
-                {evento.hora.includes('AM') ? 'AM' : evento.hora.includes('PM') ? 'PM' : ''}
-              </span>
+              {isCupoLleno ? (
+                <>
+                  <Ban className="w-5 h-5 sm:w-6 sm:h-6 mb-0.5" />
+                  <span className="text-[9px] sm:text-[10px] font-medium uppercase">Cupo</span>
+                  <span className="text-[9px] sm:text-[10px] font-medium uppercase">Lleno</span>
+                </>
+              ) : (
+                <>
+                  <span className="text-base sm:text-xl font-bold">{evento.hora.split(' ')[0]}</span>
+                  <span className="text-[10px] sm:text-xs opacity-90">
+                    {evento.hora.includes('AM') ? 'AM' : evento.hora.includes('PM') ? 'PM' : ''}
+                  </span>
+                </>
+              )}
             </div>
 
             <div className="flex-1 p-3 sm:p-4">
@@ -165,19 +182,28 @@ export function EventosStep({
                   id={`event-${evento.id}`}
                   checked={isSelected}
                   onCheckedChange={() => toggleEvent(evento.id)}
-                  disabled={isLoading || isConflicted}
+                  disabled={isLoading || isDisabled}
                   className="mt-0.5 sm:mt-1"
                 />
                 <label
                   htmlFor={`event-${evento.id}`}
-                  className={`flex-1 ${isConflicted ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                  className={`flex-1 ${isDisabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                 >
-                  <h3 className="font-semibold text-[#1a3a5c] leading-tight mb-1 sm:mb-2 text-sm sm:text-base">
-                    {evento.actividad}
-                  </h3>
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className={`font-semibold leading-tight mb-1 sm:mb-2 text-sm sm:text-base ${
+                      isCupoLleno ? 'text-muted-foreground' : 'text-[#1a3a5c]'
+                    }`}>
+                      {evento.actividad}
+                    </h3>
+                    {isCupoLleno && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-700 whitespace-nowrap">
+                        Sin cupo
+                      </span>
+                    )}
+                  </div>
                   <div className="space-y-0.5 sm:space-y-1 text-xs sm:text-sm text-muted-foreground">
                     <p className="flex items-center gap-1 sm:gap-2">
-                      <span className="inline-block w-3 h-3 sm:w-4 sm:h-4 text-[#1a3a5c] flex-shrink-0">
+                      <span className={`inline-block w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0 ${isCupoLleno ? 'text-muted-foreground' : 'text-[#1a3a5c]'}`}>
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                           <circle cx="12" cy="7" r="4" />
@@ -186,7 +212,7 @@ export function EventosStep({
                       <span className="truncate">{evento.ponente}</span>
                     </p>
                     <p className="flex items-center gap-1 sm:gap-2">
-                      <span className="inline-block w-3 h-3 sm:w-4 sm:h-4 text-[#1a3a5c] flex-shrink-0">
+                      <span className={`inline-block w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0 ${isCupoLleno ? 'text-muted-foreground' : 'text-[#1a3a5c]'}`}>
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                           <circle cx="12" cy="10" r="3" />

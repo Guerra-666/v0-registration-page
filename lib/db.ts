@@ -33,6 +33,7 @@ export interface Evento {
   sede: string;
   duracion: string;
   clasificacion: string;
+  activo: boolean;
 }
 
 export interface Inscripcion {
