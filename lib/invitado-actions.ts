@@ -21,7 +21,7 @@ export async function obtenerEventoPorId(id: number): Promise<{
 
   try {
     const result = await db.execute({
-      sql: 'SELECT id, actividad, ponente, sede, hora, dia, clasificacion FROM eventos_comiin WHERE id = ?',
+      sql: 'SELECT id_evento, actividad, ponente, sede, hora, dia, clasificacion FROM eventos_comiin WHERE id_evento = ?',
       args: [id],
     });
 
@@ -33,7 +33,7 @@ export async function obtenerEventoPorId(id: number): Promise<{
     return {
       success: true,
       evento: {
-        id: row.id as number,
+        id: row.id_evento as number,
         actividad: row.actividad as string,
         ponente: row.ponente as string,
         sede: row.sede as string,
