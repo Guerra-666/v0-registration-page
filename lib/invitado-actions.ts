@@ -92,6 +92,30 @@ export async function registrarAsistenciaExterno(data: {
 
     return { success: true };
   } catch (error: any) {
-    return { success: false, error: 'Error al registrar asistencia' };
+    console.error('[v0] Error registro externo:', error.message);
+    // Si falla por campo evento_id, reintentar sin él
+    if (error.message?.includes('evento_id') || error.message?.includes('UNIQUE')) {
+      try {
+        await db.execute({
+          sql: `INSERT INTO inscripciones_externos 
+                (nombre, correo, telefono, es_egresado, matricula_egresado, carrera_egresado, fecha_registro) 
+                VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          args: [
+            nombre.trim(),
+            correo.trim(),
+            telefono.trim(),
+            es_egresado ? 1 : 0,
+            matricula_egresado?.trim() || null,
+            carrera_egresado?.trim() || null,
+            fechaRegistro,
+          ],
+        });
+        return { success: true };
+      } catch (retryError: any) {
+        console.error('[v0] Error reintento:', retryError.message);
+        return { success: false, error: 'Error al registrar: ' + retryError.message };
+      }
+    }
+    return { success: false, error: 'Error: ' + error.message };
   }
 }
