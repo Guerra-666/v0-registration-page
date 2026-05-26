@@ -8,7 +8,26 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { obtenerEventoPorId, registrarAsistenciaExterno } from '@/lib/invitado-actions';
+import { obtenerEventoPorId, registrarAsistenciaExterno, registrarAsistenciaAlumno } from '@/lib/invitado-actions';
+
+const CARRERAS_CUH = [
+  { grupo: 'Licenciaturas', opciones: [
+    'Licenciatura en Derecho',
+    'Licenciatura en Administracion y Sistemas Computacionales',
+    'Licenciatura en Ciencias de la Educacion',
+    'Licenciatura en Contaduria y Sistemas Fiscales',
+    'Licenciatura en Ingenieria en Sistemas Computacionales',
+    'Licenciatura en Psicologia',
+  ]},
+  { grupo: 'Maestrias', opciones: [
+    'Maestria en Administracion de Negocios',
+    'Maestria en Derecho Civil',
+    'Maestria en Derecho Procesal Penal Acusatorio',
+    'Maestria en Estrategias de Intervencion en Problemas de Aprendizaje',
+    'Maestria en Formacion Docente',
+    'Maestria en Finanzas',
+  ]},
+];
 
 interface Evento {
   id: number;
@@ -20,13 +39,14 @@ interface Evento {
   clasificacion: string;
 }
 
-// Map dia number to readable format
 function getDiaTexto(dia: string): string {
   if (dia === '1') return 'Jueves 28 de mayo';
   if (dia === '2') return 'Viernes 29 de mayo';
   if (dia === '3') return 'Sabado 30 de mayo';
   return dia;
 }
+
+type TipoUsuario = null | 'alumno' | 'otro';
 
 export default function RegistroInvitadoPage() {
   const params = useParams();
@@ -36,19 +56,24 @@ export default function RegistroInvitadoPage() {
   const [evento, setEvento] = useState<Evento | null>(null);
   const [error404, setError404] = useState(false);
 
-  // Form state
+  // Tipo de usuario seleccionado
+  const [tipoUsuario, setTipoUsuario] = useState<TipoUsuario>(null);
+
+  // Alumno form state
+  const [matricula, setMatricula] = useState('');
+  const [alumnoNombre, setAlumnoNombre] = useState('');
+
+  // Externo form state
   const [nombre, setNombre] = useState('');
   const [correo, setCorreo] = useState('');
   const [telefono, setTelefono] = useState('');
   const [esEgresado, setEsEgresado] = useState(false);
-  const [matriculaEgresado, setMatriculaEgresado] = useState('');
   const [carreraEgresado, setCarreraEgresado] = useState('');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [registroExitoso, setRegistroExitoso] = useState(false);
 
-  // Load event data
   useEffect(() => {
     async function loadEvento() {
       if (!idEvento || isNaN(idEvento)) {
@@ -70,7 +95,31 @@ export default function RegistroInvitadoPage() {
     loadEvento();
   }, [idEvento]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleAlumnoSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitError('');
+    setIsSubmitting(true);
+
+    try {
+      const result = await registrarAsistenciaAlumno({
+        evento_id: idEvento,
+        matricula,
+      });
+
+      if (result.success && result.alumno) {
+        setAlumnoNombre(result.alumno.nombre);
+        setRegistroExitoso(true);
+      } else {
+        setSubmitError(result.error || 'Error al registrar');
+      }
+    } catch {
+      setSubmitError('Error inesperado');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleExternoSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitError('');
     setIsSubmitting(true);
@@ -79,50 +128,89 @@ export default function RegistroInvitadoPage() {
       const result = await registrarAsistenciaExterno({
         evento_id: idEvento,
         nombre,
-        correo,
-        telefono,
+        correo: correo || undefined,
+        telefono: telefono || undefined,
         es_egresado: esEgresado,
-        matricula_egresado: esEgresado ? matriculaEgresado : undefined,
         carrera_egresado: esEgresado ? carreraEgresado : undefined,
       });
 
       if (result.success) {
-        console.log('[v0] Registro exitoso, mostrando pantalla de éxito');
         setRegistroExitoso(true);
       } else {
-        console.log('[v0] Error en registro:', result.error);
         setSubmitError(result.error || 'Error al registrar');
       }
-    } catch (err) {
-      setSubmitError('Error inesperado al procesar el registro');
+    } catch {
+      setSubmitError('Error inesperado');
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // Header component
+  const Header = () => (
+    <header className="bg-[#1a3a5c] shadow-lg sticky top-0 z-50">
+      <div className="max-w-7xl mx-auto px-4 py-2 flex items-center justify-center">
+        <Image
+          src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/LOGO-BLANCO-ZJYsSidUIe6mzTHOqlPSn41svgcW5x.avif"
+          alt="Congreso Multidisciplinario de Investigacion e Innovacion"
+          width={280}
+          height={60}
+          className="object-contain h-12 sm:h-14 md:h-16 w-auto"
+          priority
+        />
+      </div>
+    </header>
+  );
+
+  // Event Info Card component
+  const EventoCard = () => evento && (
+    <Card className="p-5 border-t-4 border-t-[#1a3a5c]">
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <h1 className="text-lg font-semibold text-[#1a3a5c] leading-tight flex-1">
+          {evento.actividad}
+        </h1>
+        <span className={`px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
+          evento.clasificacion?.toLowerCase().includes('destacad') || evento.clasificacion?.toLowerCase().includes('general')
+            ? 'bg-[#1a3a5c] text-white'
+            : 'bg-[#1a3a5c]/20 text-[#1a3a5c]'
+        }`}>
+          {evento.clasificacion}
+        </span>
+      </div>
+      <div className="space-y-1.5 text-sm text-muted-foreground">
+        <p className="flex items-center gap-2">
+          <svg className="w-4 h-4 text-[#1a3a5c]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+          </svg>
+          {evento.ponente}
+        </p>
+        <p className="flex items-center gap-2">
+          <svg className="w-4 h-4 text-[#1a3a5c]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          {getDiaTexto(evento.dia)} | {evento.hora}
+        </p>
+        <p className="flex items-center gap-2">
+          <svg className="w-4 h-4 text-[#1a3a5c]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+          {evento.sede}
+        </p>
+      </div>
+    </Card>
+  );
+
   // Loading skeleton
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
-        <header className="bg-[#1a3a5c] shadow-lg sticky top-0 z-50">
-          <div className="max-w-7xl mx-auto px-4 py-2 flex items-center justify-center">
-            <Image
-              src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/LOGO-BLANCO-ZJYsSidUIe6mzTHOqlPSn41svgcW5x.avif"
-              alt="Congreso Multidisciplinario de Investigacion e Innovacion"
-              width={280}
-              height={60}
-              className="object-contain h-12 sm:h-14 md:h-16 w-auto"
-              priority
-            />
-          </div>
-        </header>
+        <Header />
         <main className="flex-1 flex items-center justify-center p-4">
           <Card className="w-full max-w-lg p-6 space-y-4">
             <div className="animate-pulse space-y-4">
               <div className="h-6 bg-muted rounded w-3/4"></div>
               <div className="h-4 bg-muted rounded w-1/2"></div>
-              <div className="h-4 bg-muted rounded w-2/3"></div>
-              <div className="h-10 bg-muted rounded"></div>
               <div className="h-10 bg-muted rounded"></div>
               <div className="h-10 bg-muted rounded"></div>
             </div>
@@ -136,18 +224,7 @@ export default function RegistroInvitadoPage() {
   if (error404) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
-        <header className="bg-[#1a3a5c] shadow-lg sticky top-0 z-50">
-          <div className="max-w-7xl mx-auto px-4 py-2 flex items-center justify-center">
-            <Image
-              src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/LOGO-BLANCO-ZJYsSidUIe6mzTHOqlPSn41svgcW5x.avif"
-              alt="Congreso Multidisciplinario de Investigacion e Innovacion"
-              width={280}
-              height={60}
-              className="object-contain h-12 sm:h-14 md:h-16 w-auto"
-              priority
-            />
-          </div>
-        </header>
+        <Header />
         <main className="flex-1 flex items-center justify-center p-4">
           <Card className="w-full max-w-md p-8 text-center space-y-4">
             <div className="w-16 h-16 mx-auto bg-[#1a3a5c]/10 rounded-full flex items-center justify-center">
@@ -169,18 +246,7 @@ export default function RegistroInvitadoPage() {
   if (registroExitoso && evento) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
-        <header className="bg-[#1a3a5c] shadow-lg sticky top-0 z-50">
-          <div className="max-w-7xl mx-auto px-4 py-2 flex items-center justify-center">
-            <Image
-              src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/LOGO-BLANCO-ZJYsSidUIe6mzTHOqlPSn41svgcW5x.avif"
-              alt="Congreso Multidisciplinario de Investigacion e Innovacion"
-              width={280}
-              height={60}
-              className="object-contain h-12 sm:h-14 md:h-16 w-auto"
-              priority
-            />
-          </div>
-        </header>
+        <Header />
         <main className="flex-1 flex items-center justify-center p-4">
           <Card className="w-full max-w-md p-8 text-center space-y-6">
             <div className="w-20 h-20 mx-auto bg-green-100 rounded-full flex items-center justify-center">
@@ -190,8 +256,11 @@ export default function RegistroInvitadoPage() {
             </div>
             <div className="space-y-2">
               <h1 className="text-xl font-semibold text-foreground">Asistencia Confirmada</h1>
+              {alumnoNombre && (
+                <p className="text-[#1a3a5c] font-medium">{alumnoNombre}</p>
+              )}
               <p className="text-muted-foreground text-sm">
-                Tu asistencia a <span className="font-medium text-[#1a3a5c]">{evento.actividad}</span> ha sido registrada exitosamente.
+                Tu asistencia a <span className="font-medium text-[#1a3a5c]">{evento.actividad}</span> ha sido registrada.
               </p>
             </div>
             <div className="pt-4 border-t">
@@ -205,74 +274,143 @@ export default function RegistroInvitadoPage() {
     );
   }
 
-  // Main form
+  // Main content - Type selection
+  if (!tipoUsuario) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col">
+        <Header />
+        <main className="flex-1 py-6 px-4">
+          <div className="max-w-lg mx-auto space-y-6">
+            <EventoCard />
+
+            <div className="text-center">
+              <p className="text-sm text-muted-foreground">
+                Selecciona una opcion para confirmar tu asistencia
+              </p>
+            </div>
+
+            <div className="grid gap-4">
+              <Card 
+                className="p-5 cursor-pointer hover:shadow-md transition-shadow border-2 hover:border-[#1a3a5c]"
+                onClick={() => setTipoUsuario('alumno')}
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-[#1a3a5c] rounded-full flex items-center justify-center flex-shrink-0">
+                    <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-[#1a3a5c]">Alumno Activo CUH</h3>
+                    <p className="text-sm text-muted-foreground">Tengo matricula vigente</p>
+                  </div>
+                </div>
+              </Card>
+
+              <Card 
+                className="p-5 cursor-pointer hover:shadow-md transition-shadow border-2 hover:border-[#2d5a7b]"
+                onClick={() => setTipoUsuario('otro')}
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-[#2d5a7b] rounded-full flex items-center justify-center flex-shrink-0">
+                    <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-[#2d5a7b]">Otro</h3>
+                    <p className="text-sm text-muted-foreground">Egresado CUH, Docente, Externo, etc.</p>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // Alumno form
+  if (tipoUsuario === 'alumno') {
+    return (
+      <div className="min-h-screen bg-background flex flex-col">
+        <Header />
+        <main className="flex-1 py-6 px-4">
+          <div className="max-w-lg mx-auto space-y-6">
+            <EventoCard />
+
+            <Card className="p-5">
+              <form onSubmit={handleAlumnoSubmit} className="space-y-4">
+                <div className="text-center mb-4">
+                  <h2 className="font-semibold text-[#1a3a5c]">Alumno Activo CUH</h2>
+                  <p className="text-sm text-muted-foreground">Ingresa tu matricula para confirmar asistencia</p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="matricula">Matricula</Label>
+                  <Input
+                    id="matricula"
+                    type="text"
+                    value={matricula}
+                    onChange={(e) => setMatricula(e.target.value)}
+                    placeholder="Ej: CUH12345678"
+                    required
+                    disabled={isSubmitting}
+                    className="text-center text-lg"
+                  />
+                </div>
+
+                {submitError && (
+                  <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
+                    {submitError}
+                  </div>
+                )}
+
+                <div className="flex gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => {
+                      setTipoUsuario(null);
+                      setSubmitError('');
+                      setMatricula('');
+                    }}
+                    disabled={isSubmitting}
+                  >
+                    Volver
+                  </Button>
+                  <Button
+                    type="submit"
+                    className="flex-1 bg-[#1a3a5c] hover:bg-[#152d47] text-white"
+                    disabled={isSubmitting || !matricula.trim()}
+                  >
+                    {isSubmitting ? 'Registrando...' : 'Confirmar'}
+                  </Button>
+                </div>
+              </form>
+            </Card>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // Externo/Otro form
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <header className="bg-[#1a3a5c] shadow-lg sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 py-2 flex items-center justify-center">
-          <Image
-            src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/LOGO-BLANCO-ZJYsSidUIe6mzTHOqlPSn41svgcW5x.avif"
-            alt="Congreso Multidisciplinario de Investigacion e Innovacion"
-            width={280}
-            height={60}
-            className="object-contain h-12 sm:h-14 md:h-16 w-auto"
-            priority
-          />
-        </div>
-      </header>
-
+      <Header />
       <main className="flex-1 py-6 px-4">
         <div className="max-w-lg mx-auto space-y-6">
-          {/* Event Info Card */}
-          {evento && (
-            <Card className="p-5 border-t-4 border-t-[#1a3a5c]">
-              <div className="flex items-start justify-between gap-3 mb-3">
-                <h1 className="text-lg font-semibold text-[#1a3a5c] leading-tight flex-1">
-                  {evento.actividad}
-                </h1>
-                <span className={`px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
-                  evento.clasificacion?.toLowerCase().includes('destacad') || evento.clasificacion?.toLowerCase().includes('general')
-                    ? 'bg-[#1a3a5c] text-white'
-                    : 'bg-[#1a3a5c]/20 text-[#1a3a5c]'
-                }`}>
-                  {evento.clasificacion}
-                </span>
-              </div>
-              <div className="space-y-1.5 text-sm text-muted-foreground">
-                <p className="flex items-center gap-2">
-                  <svg className="w-4 h-4 text-[#1a3a5c]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                  {evento.ponente}
-                </p>
-                <p className="flex items-center gap-2">
-                  <svg className="w-4 h-4 text-[#1a3a5c]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  {getDiaTexto(evento.dia)} | {evento.hora}
-                </p>
-                <p className="flex items-center gap-2">
-                  <svg className="w-4 h-4 text-[#1a3a5c]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                  {evento.sede}
-                </p>
-              </div>
-            </Card>
-          )}
+          <EventoCard />
 
-          {/* Welcome text */}
-          <div className="text-center">
-            <p className="text-sm text-muted-foreground">
-              Bienvenido a <span className="font-medium text-foreground">{evento?.actividad}</span>.
-              <br />Ingresa tus datos para confirmar tu asistencia al momento.
-            </p>
-          </div>
-
-          {/* Registration Form */}
           <Card className="p-5">
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleExternoSubmit} className="space-y-4">
+              <div className="text-center mb-4">
+                <h2 className="font-semibold text-[#2d5a7b]">Registro de Asistencia</h2>
+                <p className="text-sm text-muted-foreground">Completa tus datos</p>
+              </div>
+
               <div className="space-y-1.5">
                 <Label htmlFor="nombre">Nombre Completo *</Label>
                 <Input
@@ -287,27 +425,25 @@ export default function RegistroInvitadoPage() {
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="correo">Correo Electronico *</Label>
+                <Label htmlFor="correo">Correo Electronico</Label>
                 <Input
                   id="correo"
                   type="email"
                   value={correo}
                   onChange={(e) => setCorreo(e.target.value)}
-                  placeholder="correo@ejemplo.com"
-                  required
+                  placeholder="correo@ejemplo.com (Opcional)"
                   disabled={isSubmitting}
                 />
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="telefono">Telefono *</Label>
+                <Label htmlFor="telefono">Telefono</Label>
                 <Input
                   id="telefono"
                   type="tel"
                   value={telefono}
                   onChange={(e) => setTelefono(e.target.value)}
-                  placeholder="10 digitos"
-                  required
+                  placeholder="10 digitos (Opcional)"
                   disabled={isSubmitting}
                 />
               </div>
@@ -325,63 +461,65 @@ export default function RegistroInvitadoPage() {
                 />
               </div>
 
-              {/* Campos de egresado con transicion */}
+              {/* Carrera egresado con transicion */}
               <div
-                className={`space-y-4 overflow-hidden transition-all duration-300 ease-in-out ${
-                  esEgresado ? 'max-h-48 opacity-100' : 'max-h-0 opacity-0'
+                className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                  esEgresado ? 'max-h-32 opacity-100' : 'max-h-0 opacity-0'
                 }`}
               >
-                <div className="space-y-1.5">
-                  <Label htmlFor="matricula_egresado">Matricula de Egresado</Label>
-                  <Input
-                    id="matricula_egresado"
-                    type="text"
-                    value={matriculaEgresado}
-                    onChange={(e) => setMatriculaEgresado(e.target.value)}
-                    placeholder="Opcional"
-                    disabled={isSubmitting}
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="carrera_egresado">Carrera de la que egresaste *</Label>
-                  <Input
+                <div className="space-y-1.5 pt-2">
+                  <Label htmlFor="carrera_egresado">Carrera de la que egresaste</Label>
+                  <select
                     id="carrera_egresado"
-                    type="text"
                     value={carreraEgresado}
                     onChange={(e) => setCarreraEgresado(e.target.value)}
-                    placeholder="Ej: Ingenieria en Sistemas"
-                    required={esEgresado}
                     disabled={isSubmitting}
-                  />
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  >
+                    <option value="">Selecciona tu carrera</option>
+                    {CARRERAS_CUH.map((grupo) => (
+                      <optgroup key={grupo.grupo} label={grupo.grupo}>
+                        {grupo.opciones.map((carrera) => (
+                          <option key={carrera} value={carrera}>{carrera}</option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
                 </div>
               </div>
 
-              {/* Error message */}
               {submitError && (
                 <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
                   {submitError}
                 </div>
               )}
 
-              {/* Submit button */}
-              <Button
-                type="submit"
-                className="w-full h-11 bg-[#1a3a5c] hover:bg-[#152d47] text-white"
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? (
-                  <span className="flex items-center gap-2">
-                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    Registrando...
-                  </span>
-                ) : (
-                  'Confirmar Asistencia'
-                )}
-              </Button>
+              <div className="flex gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => {
+                    setTipoUsuario(null);
+                    setSubmitError('');
+                    setNombre('');
+                    setCorreo('');
+                    setTelefono('');
+                    setEsEgresado(false);
+                    setCarreraEgresado('');
+                  }}
+                  disabled={isSubmitting}
+                >
+                  Volver
+                </Button>
+                <Button
+                  type="submit"
+                  className="flex-1 bg-[#2d5a7b] hover:bg-[#1a3a5c] text-white"
+                  disabled={isSubmitting || !nombre.trim()}
+                >
+                  {isSubmitting ? 'Registrando...' : 'Confirmar'}
+                </Button>
+              </div>
             </form>
           </Card>
         </div>

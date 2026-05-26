@@ -47,27 +47,74 @@ export async function obtenerEventoPorId(id: number): Promise<{
   }
 }
 
+export async function registrarAsistenciaAlumno(data: {
+  evento_id: number;
+  matricula: string;
+}): Promise<{
+  success: boolean;
+  alumno?: {
+    nombre: string;
+    programa: string;
+  };
+  error?: string;
+}> {
+  const { evento_id, matricula } = data;
+
+  if (!matricula.trim()) {
+    return { success: false, error: 'Ingresa tu matricula' };
+  }
+
+  try {
+    // Verificar que el alumno existe
+    const alumnoResult = await db.execute({
+      sql: 'SELECT nombre, paterno, materno, programa FROM alumnos_activos WHERE matricula = ?',
+      args: [matricula.trim()],
+    });
+
+    if (alumnoResult.rows.length === 0) {
+      return { success: false, error: 'Matricula no encontrada en el sistema' };
+    }
+
+    const row = alumnoResult.rows[0];
+    const nombreCompleto = `${row.nombre} ${row.paterno} ${row.materno || ''}`.trim();
+
+    // Registrar asistencia
+    const fechaRegistro = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' });
+
+    await db.execute({
+      sql: 'INSERT OR IGNORE INTO inscripciones_eventos (alumno_matricula, evento_id, fecha_registro) VALUES (?, ?, ?)',
+      args: [matricula.trim(), evento_id, fechaRegistro],
+    });
+
+    return { 
+      success: true, 
+      alumno: {
+        nombre: nombreCompleto,
+        programa: (row.programa as string) || '',
+      }
+    };
+  } catch (error: any) {
+    console.error('[v0] Error registro alumno:', error.message);
+    return { success: false, error: 'Error al registrar asistencia' };
+  }
+}
+
 export async function registrarAsistenciaExterno(data: {
   evento_id: number;
   nombre: string;
-  correo: string;
-  telefono: string;
+  correo?: string;
+  telefono?: string;
   es_egresado: boolean;
-  matricula_egresado?: string;
   carrera_egresado?: string;
 }): Promise<{
   success: boolean;
   error?: string;
 }> {
-  const { evento_id, nombre, correo, telefono, es_egresado, matricula_egresado, carrera_egresado } = data;
+  const { evento_id, nombre, correo, telefono, es_egresado, carrera_egresado } = data;
 
-  // Validaciones
-  if (!nombre.trim() || !correo.trim() || !telefono.trim()) {
-    return { success: false, error: 'Todos los campos obligatorios deben completarse' };
-  }
-
-  if (es_egresado && !carrera_egresado?.trim()) {
-    return { success: false, error: 'Si eres egresado, debes indicar tu carrera' };
+  // Solo nombre es obligatorio
+  if (!nombre.trim()) {
+    return { success: false, error: 'El nombre completo es obligatorio' };
   }
 
   // Fecha generada en el servidor (zona horaria Mexico City)
@@ -80,9 +127,9 @@ export async function registrarAsistenciaExterno(data: {
             VALUES (?, ?, ?, ?, ?, ?, ?)`,
       args: [
         nombre.trim(),
-        correo.trim(),
-        telefono.trim(),
-        es_egresado ? (matricula_egresado?.trim() || null) : null,
+        correo?.trim() || null,
+        telefono?.trim() || null,
+        null,
         es_egresado ? (carrera_egresado?.trim() || null) : null,
         evento_id,
         fechaRegistro,
