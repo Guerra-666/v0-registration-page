@@ -38,7 +38,7 @@ export async function validarMatricula(matricula: string): Promise<{
 
 export async function obtenerEventos(): Promise<Evento[]> {
   const result = await db.execute({
-    sql: 'SELECT id_evento, dia, hora, actividad, ponente, sede, duracion, clasificacion FROM eventos_comiin ORDER BY dia, hora',
+    sql: 'SELECT id_evento, dia, hora, actividad, ponente, sede, duracion, clasificacion FROM listado_final_eventos ORDER BY dia, hora',
   });
 
   return result.rows.map((row) => ({
