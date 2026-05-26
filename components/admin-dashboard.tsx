@@ -29,20 +29,22 @@ type ReporteData = {
 
 // Extract day number from various formats
 // Could be: "Jueves 28 de mayo", "28", "1" (meaning day 1 = 28), "2" (meaning day 2 = 29)
-function getDiaNumero(dia: string): string {
-  if (!dia) return '';
+function getDiaNumero(dia: string | null | undefined): string {
+  if (!dia || typeof dia !== 'string') return '';
+  
+  const diaStr = dia.toString().trim();
   
   // If it's just "1" or "2", map to actual dates (1 = 28 mayo, 2 = 29 mayo)
-  if (dia === '1') return '28';
-  if (dia === '2') return '29';
-  if (dia === '3') return '30';
+  if (diaStr === '1') return '28';
+  if (diaStr === '2') return '29';
+  if (diaStr === '3') return '30';
   
   // If it contains a 2-digit number like 28, 29, 30, extract it
-  const match = dia.match(/\b(28|29|30)\b/);
+  const match = diaStr.match(/\b(28|29|30)\b/);
   if (match) return match[1];
   
   // Otherwise return as-is
-  return dia;
+  return diaStr;
 }
 
 export function AdminDashboard({ adminName, onLogout }: AdminDashboardProps) {
