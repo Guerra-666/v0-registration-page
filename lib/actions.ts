@@ -44,17 +44,17 @@ export async function validarMatricula(matricula: string): Promise<{
 export async function obtenerEventos(): Promise<Evento[]> {
   try {
     const result = await db.execute({
-      sql: 'SELECT id_evento, dia, hora, actividad, ponente, sede, duracion, clasificacion FROM listado_final_eventos ORDER BY dia, hora',
+      sql: 'SELECT id, dia, hora, actividad, ponente, sede, clasificacion FROM eventos_comiin ORDER BY dia, hora',
     });
 
     return result.rows.map((row) => ({
-      id: row.id_evento as number,
+      id: row.id as number,
       dia: (row.dia as string) || '',
       hora: (row.hora as string) || '',
       actividad: (row.actividad as string) || '',
       ponente: (row.ponente as string) || '',
       sede: (row.sede as string) || '',
-      duracion: (row.duracion as string) || '',
+      duracion: '',
       clasificacion: (row.clasificacion as string) || '',
     }));
   } catch (error: any) {
