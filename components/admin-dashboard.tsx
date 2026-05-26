@@ -27,6 +27,21 @@ type ReporteData = {
   fecha_registro: string;
 };
 
+type ExternoData = {
+  id: number;
+  nombre_completo: string;
+  correo: string;
+  telefono: string;
+  matricula: string | null;
+  carrera: string | null;
+  evento_id: number;
+  evento: string;
+  dia: string;
+  hora: string;
+  sede: string;
+  fecha_registro: string;
+};
+
 // Extract day number from various formats
 // Could be: "Jueves 28 de mayo", "28", "1" (meaning day 1 = 28), "2" (meaning day 2 = 29)
 function getDiaNumero(dia: string | null | undefined): string {
@@ -51,6 +66,7 @@ export function AdminDashboard({ adminName, onLogout }: AdminDashboardProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [inscripciones, setInscripciones] = useState<ReporteData[]>([]);
+  const [externos, setExternos] = useState<ExternoData[]>([]);
   const [resumen, setResumen] = useState({
     totalInscripciones: 0,
     totalAlumnos: 0,
@@ -65,13 +81,17 @@ export function AdminDashboard({ adminName, onLogout }: AdminDashboardProps) {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [resumenData, reporteData] = await Promise.all([
+      const [resumenData, reporteData, externosData] = await Promise.all([
         obtenerResumenDashboard(),
-        obtenerReporteInscripciones(5), // Only last 5 for dashboard
+        obtenerReporteInscripciones(3),
+        obtenerReporteExternos(),
       ]);
       setResumen(resumenData);
       if (reporteData.success && reporteData.data) {
         setInscripciones(reporteData.data);
+      }
+      if (externosData.success && externosData.data) {
+        setExternos(externosData.data.slice(0, 3));
       }
     } finally {
       setIsLoading(false);
@@ -242,15 +262,18 @@ export function AdminDashboard({ adminName, onLogout }: AdminDashboardProps) {
 
       {/* Main Content */}
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 py-4 sm:py-8">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
+        {/* Stats Cards - Alumnos CUH */}
+        <div className="mb-2">
+          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">Alumnos CUH</p>
+        </div>
+        <div className="grid grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
           <Card className="p-4 sm:p-6 border-l-4 border-l-[#1a3a5c]">
             <div className="flex items-center gap-3 sm:gap-4">
               <div className="bg-[#1a3a5c]/10 p-2 sm:p-3 rounded-lg">
                 <Users className="w-5 h-5 sm:w-6 sm:h-6 text-[#1a3a5c]" />
               </div>
               <div>
-                <p className="text-xs sm:text-sm text-muted-foreground">Alumnos CUH</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">Alumnos Registrados</p>
                 <p className="text-2xl sm:text-3xl font-bold text-[#1a3a5c]">
                   {isLoading ? '...' : resumen.totalAlumnos}
                 </p>
@@ -258,21 +281,7 @@ export function AdminDashboard({ adminName, onLogout }: AdminDashboardProps) {
             </div>
           </Card>
 
-          <Card className="p-4 sm:p-6 border-l-4 border-l-[#2d5a7b]">
-            <div className="flex items-center gap-3 sm:gap-4">
-              <div className="bg-[#2d5a7b]/10 p-2 sm:p-3 rounded-lg">
-                <UserPlus className="w-5 h-5 sm:w-6 sm:h-6 text-[#2d5a7b]" />
-              </div>
-              <div>
-                <p className="text-xs sm:text-sm text-muted-foreground">Externos/Egresados</p>
-                <p className="text-2xl sm:text-3xl font-bold text-[#2d5a7b]">
-                  {isLoading ? '...' : resumen.totalExternos}
-                </p>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="p-4 sm:p-6 border-l-4 border-l-[#4a7a9b] col-span-2 lg:col-span-1">
+          <Card className="p-4 sm:p-6 border-l-4 border-l-[#4a7a9b]">
             <div className="flex items-center gap-3 sm:gap-4">
               <div className="bg-[#4a7a9b]/10 p-2 sm:p-3 rounded-lg">
                 <Calendar className="w-5 h-5 sm:w-6 sm:h-6 text-[#4a7a9b]" />
@@ -367,9 +376,114 @@ export function AdminDashboard({ adminName, onLogout }: AdminDashboardProps) {
             </table>
           </div>
           <div className="px-4 py-3 bg-muted/30 border-t text-xs sm:text-sm text-muted-foreground">
-            Mostrando ultimos {inscripciones.length} registro{inscripciones.length !== 1 ? 's' : ''} - Descarga el Excel para ver el reporte completo
+            Ultimos {inscripciones.length} registro{inscripciones.length !== 1 ? 's' : ''} de alumnos CUH &mdash; Descarga el Excel para el reporte completo
           </div>
         </Card>
+
+        {/* Externos Section */}
+        <div className="mt-8 sm:mt-10">
+          {/* Divider with label */}
+          <div className="flex items-center gap-3 mb-4 sm:mb-6">
+            <div className="h-px flex-1 bg-border" />
+            <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground px-2">
+              Externos, Egresados y Docentes
+            </span>
+            <div className="h-px flex-1 bg-border" />
+          </div>
+
+          {/* Externos stats */}
+          <div className="grid grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6">
+            <Card className="p-4 sm:p-5 border-l-4 border-l-[#2d5a7b]">
+              <div className="flex items-center gap-3">
+                <div className="bg-[#2d5a7b]/10 p-2 sm:p-3 rounded-lg">
+                  <UserPlus className="w-5 h-5 text-[#2d5a7b]" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Registros Externos</p>
+                  <p className="text-2xl sm:text-3xl font-bold text-[#2d5a7b]">
+                    {isLoading ? '...' : resumen.totalExternos}
+                  </p>
+                </div>
+              </div>
+            </Card>
+
+            <Card className="p-4 sm:p-5 border-l-4 border-l-[#4a7a9b]">
+              <div className="flex items-center gap-3">
+                <div className="bg-[#4a7a9b]/10 p-2 sm:p-3 rounded-lg">
+                  <Users className="w-5 h-5 text-[#4a7a9b]" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Egresados CUH</p>
+                  <p className="text-2xl sm:text-3xl font-bold text-[#4a7a9b]">
+                    {isLoading ? '...' : externos.filter(e => e.matricula).length}
+                  </p>
+                </div>
+              </div>
+            </Card>
+          </div>
+
+          {/* Externos table */}
+          <Card className="overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-[#2d5a7b] text-white">
+                  <tr>
+                    <th className="px-3 sm:px-4 py-3 text-left font-medium text-xs sm:text-sm">Nombre</th>
+                    <th className="px-3 sm:px-4 py-3 text-left font-medium text-xs sm:text-sm hidden sm:table-cell">Tipo</th>
+                    <th className="px-3 sm:px-4 py-3 text-left font-medium text-xs sm:text-sm hidden md:table-cell">Matricula</th>
+                    <th className="px-3 sm:px-4 py-3 text-left font-medium text-xs sm:text-sm">Evento</th>
+                    <th className="px-3 sm:px-4 py-3 text-center font-medium text-xs sm:text-sm w-16">Dia</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {isLoading ? (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
+                        <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" />
+                        Cargando...
+                      </td>
+                    </tr>
+                  ) : externos.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
+                        No hay registros externos
+                      </td>
+                    </tr>
+                  ) : (
+                    externos.map((row) => (
+                      <tr key={row.id} className="hover:bg-muted/50">
+                        <td className="px-3 sm:px-4 py-3 font-medium text-xs sm:text-sm">{row.nombre_completo}</td>
+                        <td className="px-3 sm:px-4 py-3 hidden sm:table-cell">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                            row.matricula
+                              ? 'bg-[#1a3a5c]/10 text-[#1a3a5c]'
+                              : 'bg-[#4a7a9b]/10 text-[#4a7a9b]'
+                          }`}>
+                            {row.matricula ? 'Egresado' : 'Externo'}
+                          </span>
+                        </td>
+                        <td className="px-3 sm:px-4 py-3 font-mono text-xs hidden md:table-cell">
+                          {row.matricula || <span className="text-muted-foreground">N/A</span>}
+                        </td>
+                        <td className="px-3 sm:px-4 py-3 max-w-[120px] sm:max-w-xs truncate text-xs sm:text-sm" title={row.evento}>
+                          {row.evento}
+                        </td>
+                        <td className="px-3 sm:px-4 py-3 text-center">
+                          <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-[#2d5a7b]/10 text-[#2d5a7b] text-xs font-medium">
+                            {getDiaNumero(row.dia)}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <div className="px-4 py-3 bg-muted/30 border-t text-xs sm:text-sm text-muted-foreground">
+              Ultimos {externos.length} registro{externos.length !== 1 ? 's' : ''} de externos &mdash; Descarga el Excel para el reporte completo
+            </div>
+          </Card>
+        </div>
       </main>
     </div>
   );
