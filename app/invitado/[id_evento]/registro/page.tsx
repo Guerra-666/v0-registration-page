@@ -471,13 +471,13 @@ export default function RegistroInvitadoPage() {
               >
                 <div className="space-y-2.5 pt-2">
                   <div className="space-y-1.5">
-                    <Label htmlFor="matricula_egresado">Matricula de Egresado *</Label>
+                    <Label htmlFor="matricula_egresado">Matricula de Egresado</Label>
                     <Input
                       id="matricula_egresado"
                       type="text"
                       value={matriculaEgresado}
                       onChange={(e) => setMatriculaEgresado(e.target.value.toUpperCase())}
-                      placeholder="Tu matricula"
+                      placeholder="Tu matricula (Opcional)"
                       disabled={isSubmitting}
                       className="text-center"
                     />

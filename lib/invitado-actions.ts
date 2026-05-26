@@ -119,16 +119,16 @@ export async function registrarAsistenciaExterno(data: {
     return { success: false, error: 'El nombre completo es obligatorio' };
   }
 
-  // Si es egresado, la matricula es obligatoria
-  if (es_egresado && !matricula_egresado?.trim()) {
-    return { success: false, error: 'Si eres egresado, debes ingresar tu matricula' };
+  // Si es egresado, la carrera es obligatoria (matricula es opcional)
+  if (es_egresado && !carrera_egresado?.trim()) {
+    return { success: false, error: 'Si eres egresado, debes seleccionar tu carrera' };
   }
 
   // Fecha generada en el servidor (zona horaria Mexico City)
   const fechaRegistro = new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' });
 
   try {
-    const matriculaFinal = es_egresado ? matricula_egresado?.trim().toUpperCase() : null;
+    const matriculaFinal = es_egresado ? matricula_egresado?.trim().toUpperCase() || null : null;
     
     await db.execute({
       sql: `INSERT INTO inscripciones_externos 
@@ -138,7 +138,7 @@ export async function registrarAsistenciaExterno(data: {
         nombre.trim(),
         correo?.trim() || null,
         telefono?.trim() || null,
-        matriculaFinal || null,
+        matriculaFinal,
         es_egresado ? (carrera_egresado?.trim() || null) : null,
         evento_id,
         fechaRegistro,
