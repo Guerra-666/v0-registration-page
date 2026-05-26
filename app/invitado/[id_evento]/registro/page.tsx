@@ -75,23 +75,29 @@ export default function RegistroInvitadoPage() {
     setSubmitError('');
     setIsSubmitting(true);
 
-    const result = await registrarAsistenciaExterno({
-      evento_id: idEvento,
-      nombre,
-      correo,
-      telefono,
-      es_egresado: esEgresado,
-      matricula_egresado: esEgresado ? matriculaEgresado : undefined,
-      carrera_egresado: esEgresado ? carreraEgresado : undefined,
-    });
+    try {
+      const result = await registrarAsistenciaExterno({
+        evento_id: idEvento,
+        nombre,
+        correo,
+        telefono,
+        es_egresado: esEgresado,
+        matricula_egresado: esEgresado ? matriculaEgresado : undefined,
+        carrera_egresado: esEgresado ? carreraEgresado : undefined,
+      });
 
-    if (result.success) {
-      setRegistroExitoso(true);
-    } else {
-      setSubmitError(result.error || 'Error al registrar');
+      if (result.success) {
+        console.log('[v0] Registro exitoso, mostrando pantalla de éxito');
+        setRegistroExitoso(true);
+      } else {
+        console.log('[v0] Error en registro:', result.error);
+        setSubmitError(result.error || 'Error al registrar');
+      }
+    } catch (err) {
+      setSubmitError('Error inesperado al procesar el registro');
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setIsSubmitting(false);
   };
 
   // Loading skeleton
@@ -353,7 +359,9 @@ export default function RegistroInvitadoPage() {
 
               {/* Error message */}
               {submitError && (
-                <p className="text-sm text-red-600 text-center">{submitError}</p>
+                <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
+                  {submitError}
+                </div>
               )}
 
               {/* Submit button */}
