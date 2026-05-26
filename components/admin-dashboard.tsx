@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { Download, Users, Calendar, LogOut, Loader2, RefreshCw } from 'lucide-react';
+import { Download, Users, Calendar, LogOut, Loader2, RefreshCw, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { obtenerReporteInscripciones, obtenerResumenDashboard } from '@/lib/admin-actions';
+import { obtenerReporteInscripciones, obtenerResumenDashboard, obtenerReporteExternos } from '@/lib/admin-actions';
 import { getNombrePrograma } from '@/lib/programas';
 import * as XLSX from 'xlsx';
 
@@ -53,6 +53,7 @@ export function AdminDashboard({ adminName, onLogout }: AdminDashboardProps) {
     totalInscripciones: 0,
     totalAlumnos: 0,
     totalEventos: 0,
+    totalExternos: 0,
   });
 
   useEffect(() => {
@@ -79,8 +80,12 @@ export function AdminDashboard({ adminName, onLogout }: AdminDashboardProps) {
     setIsExporting(true);
     try {
       // Get ALL data for Excel export
-      const fullReport = await obtenerReporteInscripciones();
+      const [fullReport, externosReport] = await Promise.all([
+        obtenerReporteInscripciones(),
+        obtenerReporteExternos(),
+      ]);
       const allData = fullReport.data || [];
+      const externosData = externosReport.data || [];
 
       // Sheet 1: Complete detailed report
       const excelData = allData.map((row) => ({
@@ -172,6 +177,31 @@ export function AdminDashboard({ adminName, onLogout }: AdminDashboardProps) {
       wsPrograms['!cols'] = [{ wch: 10 }, { wch: 50 }, { wch: 18 }];
       XLSX.utils.book_append_sheet(wb, wsPrograms, 'Resumen por Programa');
 
+      // Sheet 5: External attendees (Invitados/Egresados)
+      const externosExcel = externosData.map((row) => ({
+        'ID': row.id,
+        'Nombre Completo': row.nombre_completo,
+        'Correo': row.correo,
+        'Telefono': row.telefono,
+        'Tipo': row.matricula ? 'Egresado' : 'Invitado',
+        'Matricula (Egresado)': row.matricula || 'N/A',
+        'Carrera (Egresado)': row.carrera || 'N/A',
+        'ID Evento': row.evento_id,
+        'Evento': row.evento,
+        'Dia': getDiaNumero(row.dia),
+        'Hora': row.hora,
+        'Sede': row.sede,
+        'Fecha de Registro': row.fecha_registro,
+      }));
+
+      const wsExternos = XLSX.utils.json_to_sheet(externosExcel);
+      wsExternos['!cols'] = [
+        { wch: 6 }, { wch: 30 }, { wch: 30 }, { wch: 15 }, { wch: 10 },
+        { wch: 15 }, { wch: 40 }, { wch: 10 }, { wch: 50 }, { wch: 8 },
+        { wch: 12 }, { wch: 25 }, { wch: 20 },
+      ];
+      XLSX.utils.book_append_sheet(wb, wsExternos, 'Externos e Invitados');
+
       const fecha = new Date().toISOString().split('T')[0];
       XLSX.writeFile(wb, `inscripciones_comiin_${fecha}.xlsx`);
     } finally {
@@ -211,14 +241,14 @@ export function AdminDashboard({ adminName, onLogout }: AdminDashboardProps) {
       {/* Main Content */}
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 py-4 sm:py-8">
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
           <Card className="p-4 sm:p-6 border-l-4 border-l-[#1a3a5c]">
             <div className="flex items-center gap-3 sm:gap-4">
               <div className="bg-[#1a3a5c]/10 p-2 sm:p-3 rounded-lg">
                 <Users className="w-5 h-5 sm:w-6 sm:h-6 text-[#1a3a5c]" />
               </div>
               <div>
-                <p className="text-xs sm:text-sm text-muted-foreground">Alumnos Registrados</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">Alumnos CUH</p>
                 <p className="text-2xl sm:text-3xl font-bold text-[#1a3a5c]">
                   {isLoading ? '...' : resumen.totalAlumnos}
                 </p>
@@ -229,11 +259,25 @@ export function AdminDashboard({ adminName, onLogout }: AdminDashboardProps) {
           <Card className="p-4 sm:p-6 border-l-4 border-l-[#2d5a7b]">
             <div className="flex items-center gap-3 sm:gap-4">
               <div className="bg-[#2d5a7b]/10 p-2 sm:p-3 rounded-lg">
-                <Calendar className="w-5 h-5 sm:w-6 sm:h-6 text-[#2d5a7b]" />
+                <UserPlus className="w-5 h-5 sm:w-6 sm:h-6 text-[#2d5a7b]" />
+              </div>
+              <div>
+                <p className="text-xs sm:text-sm text-muted-foreground">Externos/Egresados</p>
+                <p className="text-2xl sm:text-3xl font-bold text-[#2d5a7b]">
+                  {isLoading ? '...' : resumen.totalExternos}
+                </p>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-4 sm:p-6 border-l-4 border-l-[#4a7a9b] col-span-2 lg:col-span-1">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="bg-[#4a7a9b]/10 p-2 sm:p-3 rounded-lg">
+                <Calendar className="w-5 h-5 sm:w-6 sm:h-6 text-[#4a7a9b]" />
               </div>
               <div>
                 <p className="text-xs sm:text-sm text-muted-foreground">Eventos Disponibles</p>
-                <p className="text-2xl sm:text-3xl font-bold text-[#2d5a7b]">
+                <p className="text-2xl sm:text-3xl font-bold text-[#4a7a9b]">
                   {isLoading ? '...' : resumen.totalEventos}
                 </p>
               </div>
