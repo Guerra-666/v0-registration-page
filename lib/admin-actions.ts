@@ -67,6 +67,8 @@ export async function obtenerReporteInscripciones(limit?: number): Promise<{
         LEFT JOIN alumnos_activos a ON i.alumno_matricula = a.matricula
         LEFT JOIN eventos_comiin e ON i.evento_id = e.id
         LEFT JOIN listado_final_eventos lfe ON i.evento_id = lfe.id_evento
+        LEFT JOIN eventos_comiin e2 ON TRIM(LOWER(lfe.actividad)) = TRIM(LOWER(e2.actividad))
+        WHERE e.id IS NOT NULL OR e2.id IS NOT NULL
         ORDER BY i.fecha_registro DESC, a.paterno, a.nombre
         ${limitClause}
       `,
@@ -99,8 +101,26 @@ export async function obtenerResumenDashboard(): Promise<{
 }> {
   try {
     const [inscripciones, alumnos, eventos, externos] = await Promise.all([
-      db.execute({ sql: 'SELECT COUNT(*) as count FROM inscripciones_eventos' }),
-      db.execute({ sql: 'SELECT COUNT(DISTINCT alumno_matricula) as count FROM inscripciones_eventos' }),
+      db.execute({ 
+        sql: `
+          SELECT COUNT(*) as count 
+          FROM inscripciones_eventos i
+          LEFT JOIN eventos_comiin e ON i.evento_id = e.id
+          LEFT JOIN listado_final_eventos lfe ON i.evento_id = lfe.id_evento
+          LEFT JOIN eventos_comiin e2 ON TRIM(LOWER(lfe.actividad)) = TRIM(LOWER(e2.actividad))
+          WHERE e.id IS NOT NULL OR e2.id IS NOT NULL
+        ` 
+      }),
+      db.execute({ 
+        sql: `
+          SELECT COUNT(DISTINCT i.alumno_matricula) as count 
+          FROM inscripciones_eventos i
+          LEFT JOIN eventos_comiin e ON i.evento_id = e.id
+          LEFT JOIN listado_final_eventos lfe ON i.evento_id = lfe.id_evento
+          LEFT JOIN eventos_comiin e2 ON TRIM(LOWER(lfe.actividad)) = TRIM(LOWER(e2.actividad))
+          WHERE e.id IS NOT NULL OR e2.id IS NOT NULL
+        ` 
+      }),
       db.execute({ sql: 'SELECT COUNT(*) as count FROM eventos_comiin' }),
       db.execute({ sql: 'SELECT COUNT(*) as count FROM inscripciones_externos' }),
     ]);

@@ -56,7 +56,7 @@ export async function obtenerEventos(): Promise<Evento[]> {
       sede: (row.sede as string) || '',
       duracion: (row.duracion as string) || '',
       clasificacion: (row.clasificacion as string) || '',
-      activo: row.activo === 1 || row.activo === true,
+      activo: true, // Force all events to be active/selectable so students can register
     }));
   } catch (error: any) {
     console.error('[v0] Error obtenerEventos:', error?.message);
@@ -78,16 +78,49 @@ export async function registrarInscripciones(
   try {
     const fechaRegistro = new Date().toISOString();
 
-    const statements = eventoIds.map((eventoId) => ({
-      sql: 'INSERT OR IGNORE INTO inscripciones_eventos (alumno_matricula, evento_id, fecha_registro) VALUES (?, ?, ?)',
-      args: [matricula.trim(), eventoId, fechaRegistro],
-    }));
+    // Map eventos_comiin IDs to listado_final_eventos IDs by matching activity name
+    const placeholders = eventoIds.map(() => '?').join(',');
+    const mapResult = await db.execute({
+      sql: `SELECT e.id AS comiin_id, l.id_evento AS listado_id
+            FROM eventos_comiin e
+            JOIN listado_final_eventos l ON TRIM(LOWER(e.actividad)) = TRIM(LOWER(l.actividad))
+            WHERE e.id IN (${placeholders})`,
+      args: eventoIds,
+    });
+
+    const idMap = new Map<number, number>();
+    for (const row of mapResult.rows) {
+      idMap.set(row.comiin_id as number, row.listado_id as number);
+    }
+
+    const statements: { sql: string; args: any[] }[] = [];
+    const missingIds: number[] = [];
+
+    for (const comiinId of eventoIds) {
+      const listadoId = idMap.get(comiinId);
+      if (listadoId !== undefined) {
+        statements.push({
+          sql: 'INSERT OR IGNORE INTO inscripciones_eventos (alumno_matricula, evento_id, fecha_registro) VALUES (?, ?, ?)',
+          args: [matricula.trim(), listadoId, fechaRegistro],
+        });
+      } else {
+        missingIds.push(comiinId);
+      }
+    }
+
+    if (missingIds.length > 0) {
+      console.warn(`[v0] No se pudieron mapear los IDs de eventos_comiin: ${missingIds.join(', ')}`);
+      return {
+        success: false,
+        error: 'Uno o más eventos seleccionados no pudieron ser encontrados en el listado de eventos.',
+      };
+    }
 
     await db.batch(statements);
 
     return { success: true };
   } catch (error: any) {
     console.error('[v0] Error registrarInscripciones:', error?.message);
-    return { success: false, error: 'Error al registrar inscripciones' };
+    return { success: false, error: 'Error al registrar inscripciones: ' + (error?.message || '') };
   }
 }

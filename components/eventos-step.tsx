@@ -67,25 +67,46 @@ function findConflict(candidate: Evento, selected: Evento[]): Evento | null {
   return null;
 }
 
+// Helper to clean up "Día 1 – Jueves 28 de mayo" -> "Jueves 28 de mayo"
+function getDayLabel(dia: string): string {
+  if (!dia) return '';
+  return dia.replace(/^Día \d+\s*–\s*/i, '').trim();
+}
+
+// Helper to short label "Jueves 28 de mayo" -> "Jue 28"
+function getDayShortLabel(dia: string): string {
+  const cleaned = getDayLabel(dia);
+  const match = cleaned.match(/(\w{3})\w*\s*(\d{1,2})/i);
+  if (match) {
+    return `${match[1]} ${match[2]}`;
+  }
+  return cleaned;
+}
+
 export function EventosStep({
   alumno,
   eventos,
   onSuccess,
   isLoading,
 }: EventosStepProps) {
+  // Group events by day
+  const eventsByDay = eventos.reduce((acc, event) => {
+    const day = event.dia || 'Otro';
+    if (!acc[day]) {
+      acc[day] = [];
+    }
+    acc[day].push(event);
+    return acc;
+  }, {} as Record<string, Evento[]>);
+
+  const days = Object.keys(eventsByDay).sort((a, b) => {
+    return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+  });
+
   const [selectedEvents, setSelectedEvents] = useState<Set<number>>(new Set());
-  const [activeTab, setActiveTab] = useState('jueves');
+  const [activeTab, setActiveTab] = useState(days[0] || '');
   // conflictWarning: maps event id -> name of conflicting event
   const [conflictWarning, setConflictWarning] = useState<{ id: number; conflictsWith: string } | null>(null);
-
-  const eventosJueves = eventos.filter((e) => {
-    const d = e.dia?.toString() ?? '';
-    return d === '1' || d.includes('28');
-  });
-  const eventosViernes = eventos.filter((e) => {
-    const d = e.dia?.toString() ?? '';
-    return d === '2' || d.includes('29');
-  });
 
   const selectedEventObjects = eventos.filter((e) => selectedEvents.has(e.id));
 
@@ -267,50 +288,33 @@ export function EventosStep({
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setConflictWarning(null); }} className="mb-4 sm:mb-6">
-          <TabsList className="grid w-full grid-cols-2 h-auto">
-            <TabsTrigger value="jueves" className="text-xs sm:text-sm py-2 sm:py-3">
-              <span className="hidden sm:inline">Jueves 28 de mayo</span>
-              <span className="sm:hidden">Jue 28</span>
-              {eventosJueves.length > 0 && (
-                <span className="ml-1 sm:ml-2 inline-flex items-center justify-center px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-medium bg-muted">
-                  {eventosJueves.length}
-                </span>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="viernes" className="text-xs sm:text-sm py-2 sm:py-3">
-              <span className="hidden sm:inline">Viernes 29 de mayo</span>
-              <span className="sm:hidden">Vie 29</span>
-              {eventosViernes.length > 0 && (
-                <span className="ml-1 sm:ml-2 inline-flex items-center justify-center px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-medium bg-muted">
-                  {eventosViernes.length}
-                </span>
-              )}
-            </TabsTrigger>
+          <TabsList className="grid w-full h-auto" style={{ gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))` }}>
+            {days.map((day) => (
+              <TabsTrigger key={day} value={day} className="text-xs sm:text-sm py-2 sm:py-3">
+                <span className="hidden sm:inline">{getDayLabel(day)}</span>
+                <span className="sm:hidden">{getDayShortLabel(day)}</span>
+                {eventsByDay[day].length > 0 && (
+                  <span className="ml-1 sm:ml-2 inline-flex items-center justify-center px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-medium bg-muted">
+                    {eventsByDay[day].length}
+                  </span>
+                )}
+              </TabsTrigger>
+            ))}
           </TabsList>
 
-          <TabsContent value="jueves" className="space-y-2 sm:space-y-3 mt-3 sm:mt-4">
-            {eventosJueves.length > 0 ? (
-              eventosJueves.map(renderEventCard)
-            ) : (
-              <Card className="p-6 sm:p-8 text-center">
-                <p className="text-muted-foreground text-sm">
-                  No hay eventos disponibles para este dia
-                </p>
-              </Card>
-            )}
-          </TabsContent>
-
-          <TabsContent value="viernes" className="space-y-2 sm:space-y-3 mt-3 sm:mt-4">
-            {eventosViernes.length > 0 ? (
-              eventosViernes.map(renderEventCard)
-            ) : (
-              <Card className="p-6 sm:p-8 text-center">
-                <p className="text-muted-foreground text-sm">
-                  No hay eventos disponibles para este dia
-                </p>
-              </Card>
-            )}
-          </TabsContent>
+          {days.map((day) => (
+            <TabsContent key={day} value={day} className="space-y-2 sm:space-y-3 mt-3 sm:mt-4">
+              {eventsByDay[day].length > 0 ? (
+                eventsByDay[day].map(renderEventCard)
+              ) : (
+                <Card className="p-6 sm:p-8 text-center">
+                  <p className="text-muted-foreground text-sm">
+                    No hay eventos disponibles para este día
+                  </p>
+                </Card>
+              )}
+            </TabsContent>
+          ))}
         </Tabs>
 
         {/* Counter and Action - Fixed on mobile */}

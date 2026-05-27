@@ -70,7 +70,10 @@ export default function RegistroPage() {
         throw new Error('Alumno no definido');
       }
 
-      await registrarInscripciones(alumno.matricula, selectedIds);
+      const res = await registrarInscripciones(alumno.matricula, selectedIds);
+      if (!res.success) {
+        throw new Error(res.error || 'Error al registrar inscripciones');
+      }
 
       const selected = eventos.filter((e) => selectedIds.includes(e.id));
       setEventosSeleccionados(selected);
