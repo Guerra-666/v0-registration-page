@@ -59,7 +59,51 @@ function getDiaNumero(dia: string | null | undefined): string {
   if (match) return match[1];
   
   // Otherwise return as-is
+}
+
+function getDiaCompleto(dia: string | null | undefined): string {
+  if (!dia) return '';
+  const diaStr = dia.toString().trim();
+  
+  if (diaStr === '1' || diaStr.includes('28')) return 'Jueves 28';
+  if (diaStr === '2' || diaStr.includes('29')) return 'Viernes 29';
+  if (diaStr === '3' || diaStr.includes('30')) return 'Sábado 30';
+  
   return diaStr;
+}
+
+function formatFechaRegistro(dateStr: string | null | undefined): string {
+  if (!dateStr) return '';
+  const str = dateStr.toString().trim();
+  
+  // Try parsing with standard Date
+  const parsed = new Date(str);
+  if (!isNaN(parsed.getTime())) {
+    return parsed.toLocaleString('es-MX', { timeZone: 'America/Mexico_City' });
+  }
+
+  // If it's a DD/MM/YYYY local string, e.g. "25/5/2026, 6:07:58 p.m."
+  const regex = /(\d{1,2})\/(\d{1,2})\/(\d{4}),?\s*(\d{1,2}):(\d{2}):(\d{2})\s*(a\.?\s*m\.?|p\.?\s*m\.?|AM|PM)?/i;
+  const match = str.match(regex);
+  if (match) {
+    const day = parseInt(match[1], 10);
+    const month = parseInt(match[2], 10) - 1; // 0-indexed in JS Date
+    const year = parseInt(match[3], 10);
+    let hour = parseInt(match[4], 10);
+    const minute = parseInt(match[5], 10);
+    const second = parseInt(match[6], 10);
+    const ampm = (match[7] || '').toLowerCase().replace(/\s|\./g, ''); // "am", "pm" or ""
+
+    if (ampm === 'pm' && hour !== 12) hour += 12;
+    if (ampm === 'am' && hour === 12) hour = 0;
+
+    const date = new Date(year, month, day, hour, minute, second);
+    if (!isNaN(date.getTime())) {
+      return date.toLocaleString('es-MX', { timeZone: 'America/Mexico_City' });
+    }
+  }
+
+  return str;
 }
 
 export function AdminDashboard({ adminName, onLogout }: AdminDashboardProps) {
@@ -97,7 +141,6 @@ export function AdminDashboard({ adminName, onLogout }: AdminDashboardProps) {
       setIsLoading(false);
     }
   };
-
   const handleExportExcel = async () => {
     setIsExporting(true);
     try {
@@ -117,17 +160,17 @@ export function AdminDashboard({ adminName, onLogout }: AdminDashboardProps) {
         'ID Evento': row.evento_id,
         'Evento': row.evento || `(ID: ${row.evento_id} no encontrado)`,
         'Tipo Evento': row.clasificacion,
-        'Dia': getDiaNumero(row.dia),
+        'Dia': getDiaCompleto(row.dia),
         'Hora': row.hora,
         'Sede': row.sede,
-        'Fecha de Registro': row.fecha_registro ? new Date(row.fecha_registro).toLocaleString('es-MX') : '',
+        'Fecha de Registro': formatFechaRegistro(row.fecha_registro),
       }));
 
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.json_to_sheet(excelData);
       ws['!cols'] = [
         { wch: 12 }, { wch: 35 }, { wch: 50 }, { wch: 10 }, { wch: 60 },
-        { wch: 22 }, { wch: 8 }, { wch: 12 }, { wch: 30 }, { wch: 20 },
+        { wch: 22 }, { wch: 12 }, { wch: 12 }, { wch: 30 }, { wch: 25 },
       ];
       XLSX.utils.book_append_sheet(wb, ws, 'Inscripciones Completas');
 
@@ -145,14 +188,14 @@ export function AdminDashboard({ adminName, onLogout }: AdminDashboardProps) {
         .sort((a, b) => b[1].count - a[1].count)
         .map(([evento, info]) => ({
           'Evento': evento,
-          'Dia': getDiaNumero(info.dia),
+          'Dia': getDiaCompleto(info.dia),
           'Hora': info.hora,
           'Sede': info.sede,
           'Total Inscritos': info.count,
         }));
 
       const wsSummary = XLSX.utils.json_to_sheet(summaryData);
-      wsSummary['!cols'] = [{ wch: 60 }, { wch: 8 }, { wch: 12 }, { wch: 30 }, { wch: 15 }];
+      wsSummary['!cols'] = [{ wch: 60 }, { wch: 12 }, { wch: 12 }, { wch: 30 }, { wch: 15 }];
       XLSX.utils.book_append_sheet(wb, wsSummary, 'Resumen por Evento');
 
       // Sheet 3: Summary by student
@@ -194,7 +237,7 @@ export function AdminDashboard({ adminName, onLogout }: AdminDashboardProps) {
 
       const wsPrograms = XLSX.utils.json_to_sheet(programData);
       wsPrograms['!cols'] = [{ wch: 10 }, { wch: 50 }, { wch: 18 }];
-      XLSX.utils.book_append_sheet(wb, wsPrograms, 'Resumen por Programa');
+      XLSX.utils.book_append_sheet(wb, wsPrograms, 'Resumen por Programas');
 
       // Sheet 5: External attendees (Invitados/Egresados)
       const externosExcel = externosData.map((row) => ({
@@ -207,17 +250,17 @@ export function AdminDashboard({ adminName, onLogout }: AdminDashboardProps) {
         'Carrera (Egresado)': row.carrera || 'N/A',
         'ID Evento': row.evento_id,
         'Evento': row.evento,
-        'Dia': getDiaNumero(row.dia),
+        'Dia': getDiaCompleto(row.dia),
         'Hora': row.hora,
         'Sede': row.sede,
-        'Fecha de Registro': row.fecha_registro,
+        'Fecha de Registro': formatFechaRegistro(row.fecha_registro),
       }));
 
       const wsExternos = XLSX.utils.json_to_sheet(externosExcel);
       wsExternos['!cols'] = [
         { wch: 6 }, { wch: 30 }, { wch: 30 }, { wch: 15 }, { wch: 10 },
-        { wch: 15 }, { wch: 40 }, { wch: 10 }, { wch: 50 }, { wch: 8 },
-        { wch: 12 }, { wch: 25 }, { wch: 20 },
+        { wch: 15 }, { wch: 40 }, { wch: 10 }, { wch: 50 }, { wch: 12 },
+        { wch: 12 }, { wch: 25 }, { wch: 25 },
       ];
       XLSX.utils.book_append_sheet(wb, wsExternos, 'Externos e Invitados');
 
