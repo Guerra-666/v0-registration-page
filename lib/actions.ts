@@ -56,7 +56,7 @@ export async function obtenerEventos(): Promise<Evento[]> {
       sede: (row.sede as string) || '',
       duracion: (row.duracion as string) || '',
       clasificacion: (row.clasificacion as string) || '',
-      activo: true, // Force all events to be active/selectable so students can register
+      activo: row.activo === 1 || row.activo === true || row.activo === 'TRUE' || row.activo === '1',
     }));
   } catch (error: any) {
     console.error('[v0] Error obtenerEventos:', error?.message);
