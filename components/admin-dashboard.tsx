@@ -114,29 +114,26 @@ export function AdminDashboard({ adminName, onLogout }: AdminDashboardProps) {
         'Matricula': row.matricula,
         'Nombre del Alumno': row.nombre_alumno,
         'Programa Academico': getNombrePrograma(row.programa),
-        'Clave Programa': row.programa,
         'ID Evento': row.evento_id,
-        'Nombre del Evento': row.evento,
-        'Dia': row.dia,
-        'Dia (Num)': getDiaNumero(row.dia),
+        'Evento': row.evento || `(ID: ${row.evento_id} no encontrado)`,
+        'Tipo Evento': row.clasificacion,
+        'Dia': getDiaNumero(row.dia),
         'Hora': row.hora,
         'Sede': row.sede,
-        'Clasificacion': row.clasificacion,
         'Fecha de Registro': row.fecha_registro ? new Date(row.fecha_registro).toLocaleString('es-MX') : '',
       }));
 
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.json_to_sheet(excelData);
       ws['!cols'] = [
-        { wch: 12 }, { wch: 35 }, { wch: 50 }, { wch: 10 }, { wch: 10 },
-        { wch: 60 }, { wch: 22 }, { wch: 8 }, { wch: 12 }, { wch: 30 },
-        { wch: 20 }, { wch: 20 },
+        { wch: 12 }, { wch: 35 }, { wch: 50 }, { wch: 10 }, { wch: 60 },
+        { wch: 22 }, { wch: 8 }, { wch: 12 }, { wch: 30 }, { wch: 20 },
       ];
       XLSX.utils.book_append_sheet(wb, ws, 'Inscripciones Completas');
 
       // Sheet 2: Summary by event with counts
       const eventSummary = allData.reduce((acc: Record<string, { count: number; dia: string; hora: string; sede: string }>, row) => {
-        const key = row.evento || 'Sin evento';
+        const key = row.evento || `Evento ID: ${row.evento_id} (no encontrado en eventos_comiin)`;
         if (!acc[key]) {
           acc[key] = { count: 0, dia: row.dia, hora: row.hora, sede: row.sede };
         }
