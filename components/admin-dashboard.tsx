@@ -6,6 +6,7 @@ import { Download, Users, Calendar, LogOut, Loader2, RefreshCw, UserPlus } from 
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { obtenerReporteInscripciones, obtenerResumenDashboard, obtenerReporteExternos } from '@/lib/admin-actions';
+import { obtenerEventos } from '@/lib/actions';
 import { getNombrePrograma } from '@/lib/programas';
 import * as XLSX from 'xlsx';
 
@@ -145,9 +146,10 @@ export function AdminDashboard({ adminName, onLogout }: AdminDashboardProps) {
     setIsExporting(true);
     try {
       // Get ALL data for Excel export
-      const [fullReport, externosReport] = await Promise.all([
+      const [fullReport, externosReport, comiinEventos] = await Promise.all([
         obtenerReporteInscripciones(),
         obtenerReporteExternos(),
+        obtenerEventos(),
       ]);
       const allData = fullReport.data || [];
       const externosData = externosReport.data || [];
@@ -175,14 +177,26 @@ export function AdminDashboard({ adminName, onLogout }: AdminDashboardProps) {
       XLSX.utils.book_append_sheet(wb, ws, 'Inscripciones Completas');
 
       // Sheet 2: Summary by event with counts
-      const eventSummary = allData.reduce((acc: Record<string, { count: number; dia: string; hora: string; sede: string }>, row) => {
+      const eventSummary: Record<string, { count: number; dia: string; hora: string; sede: string }> = {};
+
+      // Initialize all events from database with 0 counts
+      for (const ev of comiinEventos) {
+        eventSummary[ev.actividad] = {
+          count: 0,
+          dia: ev.dia,
+          hora: ev.hora,
+          sede: ev.sede
+        };
+      }
+
+      // Aggregate counts from registrations
+      for (const row of allData) {
         const key = row.evento || `Evento ID: ${row.evento_id} (no encontrado en eventos_comiin)`;
-        if (!acc[key]) {
-          acc[key] = { count: 0, dia: row.dia, hora: row.hora, sede: row.sede };
+        if (!eventSummary[key]) {
+          eventSummary[key] = { count: 0, dia: row.dia, hora: row.hora, sede: row.sede };
         }
-        acc[key].count++;
-        return acc;
-      }, {});
+        eventSummary[key].count++;
+      }
 
       const summaryData = Object.entries(eventSummary)
         .sort((a, b) => b[1].count - a[1].count)
