@@ -57,16 +57,16 @@ export async function obtenerReporteInscripciones(limit?: number): Promise<{
           a.nombre || ' ' || a.paterno || ' ' || COALESCE(a.materno, '') as nombre_alumno,
           a.programa,
           i.evento_id,
-          e.id as evento_id_match,
-          e.actividad as evento,
-          e.dia,
-          e.hora,
-          e.sede,
-          e.clasificacion,
+          COALESCE(e.actividad, lfe.actividad) as evento,
+          COALESCE(e.dia, lfe.dia) as dia,
+          COALESCE(e.hora, lfe.hora) as hora,
+          COALESCE(e.sede, lfe.sede) as sede,
+          COALESCE(e.clasificacion, lfe.clasificacion) as clasificacion,
           i.fecha_registro
         FROM inscripciones_eventos i
         LEFT JOIN alumnos_activos a ON i.alumno_matricula = a.matricula
         LEFT JOIN eventos_comiin e ON i.evento_id = e.id
+        LEFT JOIN listado_final_eventos lfe ON i.evento_id = lfe.id_evento
         ORDER BY i.fecha_registro DESC, a.paterno, a.nombre
         ${limitClause}
       `,
